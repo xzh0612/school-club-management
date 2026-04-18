@@ -1,0 +1,85 @@
+import request from '../utils/request'
+
+/**
+ * 获取当前登录用户信息
+ */
+export function getCurrentUser() {
+  return request({
+    url: '/users/current',
+    method: 'get'
+  })
+}
+
+/**
+ * 获取用户个人社团信息
+ */
+export function getUserClubs(userId) {
+  return request({
+    url: `/users/${userId}/clubs`,
+    method: 'get'
+  })
+}
+
+/**
+ * 获取用户活动记录
+ */
+export function getUserActivities(userId) {
+  return request({
+    url: `/users/${userId}/activities`,
+    method: 'get'
+  })
+}
+
+/**
+ * 获取用户列表
+ */
+export function getUserList(page = 1, size = 10, role = '') {
+  return request({
+    url: '/users',
+    method: 'get',
+    params: { page, size, role }
+  })
+}
+
+/**
+ * 搜索用户
+ */
+export function searchUsers(keyword, page = 1, size = 10) {
+  return request({
+    url: '/users/search',
+    method: 'get',
+    params: { keyword, page, size }
+  })
+}
+
+/**
+ * 创建用户
+ */
+export function createUser(data) {
+  return request({
+    url: '/users',
+    method: 'post',
+    data
+  })
+}
+
+/**
+ * 更新用户
+ */
+export function updateUser(id, data) {
+  return request({
+    url: `/users/${id}`,
+    method: 'put',
+    data
+  })
+}
+
+/**
+ * 删除用户
+ */
+export function deleteUser(id) {
+  return request({
+    url: `/users/${id}`,
+    method: 'delete'
+  })
+}

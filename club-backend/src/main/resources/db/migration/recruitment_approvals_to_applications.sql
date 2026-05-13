@@ -35,3 +35,5 @@ JOIN applications keep_app
  AND keep_app.club_id = app.club_id
  AND keep_app.status = app.status
  AND keep_app.application_id < app.application_id;
+
+DELETE FROM approvals WHERE type = 'recruitment_application';

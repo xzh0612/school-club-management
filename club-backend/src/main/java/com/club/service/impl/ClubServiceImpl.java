@@ -1,5 +1,6 @@
 package com.club.service.impl;
 
+import com.club.common.PageQuery;
 import com.club.entity.*;
 import com.club.mapper.*;
 import com.club.service.ClubService;
@@ -17,23 +18,25 @@ public class ClubServiceImpl implements ClubService {
 
     @Override
     public List<Club> list(String status, String keyword, int page, int size) {
-        int offset = (page - 1) * size;
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
         if (keyword != null && !keyword.isEmpty()) {
             if (status != null && !status.isEmpty()) {
-                return clubMapper.searchByStatus(keyword, status, offset, size);
+                return clubMapper.searchByStatus(keyword, status, offset, pageSize);
             }
-            return clubMapper.search(keyword, offset, size);
+            return clubMapper.search(keyword, offset, pageSize);
         }
         if (status != null && !status.isEmpty()) {
-            return clubMapper.findByStatus(status, offset, size);
+            return clubMapper.findByStatus(status, offset, pageSize);
         }
-        return clubMapper.findAll(offset, size);
+        return clubMapper.findAll(offset, pageSize);
     }
 
     @Override
-    public List<Club> listManageable(Integer userId, Integer clubId, int page, int size) {
-        int offset = (page - 1) * size;
-        return clubMapper.findManageable(userId, clubId, offset, size);
+    public List<Club> listManageable(Integer userId, Integer clubId, boolean includeAdvisor, int page, int size) {
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
+        return clubMapper.findManageable(userId, clubId, includeAdvisor, offset, pageSize);
     }
 
     @Override
@@ -51,8 +54,25 @@ public class ClubServiceImpl implements ClubService {
     }
 
     @Override
-    public int countManageable(Integer userId, Integer clubId) {
-        return clubMapper.countManageable(userId, clubId);
+    public int countManageable(Integer userId, Integer clubId, boolean includeAdvisor) {
+        return clubMapper.countManageable(userId, clubId, includeAdvisor);
+    }
+
+    @Override
+    public java.util.Map<String, Integer> stats(Integer userId, Integer clubId, boolean includeAdvisor, boolean global) {
+        java.util.Map<String, Integer> stats = new java.util.HashMap<>();
+        if (global) {
+            stats.put("total", clubMapper.countAll());
+            stats.put("approved", clubMapper.countByStatus("approved"));
+            stats.put("pending", clubMapper.countByStatus("pending"));
+            stats.put("classified", clubMapper.countClassified());
+            return stats;
+        }
+        stats.put("total", clubMapper.countManageable(userId, clubId, includeAdvisor));
+        stats.put("approved", clubMapper.countManageableByStatus(userId, clubId, includeAdvisor, "approved"));
+        stats.put("pending", clubMapper.countManageableByStatus(userId, clubId, includeAdvisor, "pending"));
+        stats.put("classified", clubMapper.countManageableClassified(userId, clubId, includeAdvisor));
+        return stats;
     }
 
     @Override
@@ -82,8 +102,9 @@ public class ClubServiceImpl implements ClubService {
 
     @Override
     public List<Club> search(String keyword, int page, int size) {
-        int offset = (page - 1) * size;
-        return clubMapper.search(keyword, offset, size);
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
+        return clubMapper.search(keyword, offset, pageSize);
     }
 
     @Override
@@ -93,8 +114,9 @@ public class ClubServiceImpl implements ClubService {
 
     @Override
     public List<Club> searchByStatus(String keyword, String status, int page, int size) {
-        int offset = (page - 1) * size;
-        return clubMapper.searchByStatus(keyword, status, offset, size);
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
+        return clubMapper.searchByStatus(keyword, status, offset, pageSize);
     }
 
     @Override
@@ -103,14 +125,15 @@ public class ClubServiceImpl implements ClubService {
     }
 
     @Override
-    public List<Club> searchManageable(String keyword, Integer userId, Integer clubId, int page, int size) {
-        int offset = (page - 1) * size;
-        return clubMapper.searchManageable(keyword, userId, clubId, offset, size);
+    public List<Club> searchManageable(String keyword, Integer userId, Integer clubId, boolean includeAdvisor, int page, int size) {
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
+        return clubMapper.searchManageable(keyword, userId, clubId, includeAdvisor, offset, pageSize);
     }
 
     @Override
-    public int searchManageableCount(String keyword, Integer userId, Integer clubId) {
-        return clubMapper.searchManageableCount(keyword, userId, clubId);
+    public int searchManageableCount(String keyword, Integer userId, Integer clubId, boolean includeAdvisor) {
+        return clubMapper.searchManageableCount(keyword, userId, clubId, includeAdvisor);
     }
 
     @Override
@@ -129,11 +152,12 @@ public class ClubServiceImpl implements ClubService {
 
     @Override
     public List<Activity> getActivities(Long clubId, String status, int page, int size) {
-        int offset = (page - 1) * size;
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
         if (status != null && !status.isEmpty()) {
-            return activityMapper.findByClubIdAndStatus(clubId.intValue(), status, offset, size);
+            return activityMapper.findByClubIdAndStatus(clubId.intValue(), status, offset, pageSize);
         }
-        return activityMapper.findByClubId(clubId.intValue(), offset, size);
+        return activityMapper.findByClubId(clubId.intValue(), offset, pageSize);
     }
 
     @Override

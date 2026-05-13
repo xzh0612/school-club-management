@@ -1,5 +1,6 @@
 package com.club.service.impl;
 
+import com.club.common.PageQuery;
 import com.club.entity.Application;
 import com.club.entity.Club;
 import com.club.entity.ClubMember;
@@ -29,15 +30,16 @@ public class ApplicationServiceImpl implements ApplicationService {
 
     @Override
     public List<Application> list(Integer clubId, String status, Integer currentUserId, boolean adminOrTeacher, int page, int size) {
-        int offset = (page - 1) * size;
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
         Integer effectiveClubId = resolveClubId(clubId, currentUserId, adminOrTeacher);
         if (effectiveClubId == null) {
-            return applicationMapper.findAll(offset, size);
+            return applicationMapper.findAll(offset, pageSize);
         }
         if (status != null && !status.isBlank()) {
-            return applicationMapper.findByClubIdAndStatus(effectiveClubId, status, offset, size);
+            return applicationMapper.findByClubIdAndStatus(effectiveClubId, status, offset, pageSize);
         }
-        return applicationMapper.findByClubId(effectiveClubId, offset, size);
+        return applicationMapper.findByClubId(effectiveClubId, offset, pageSize);
     }
 
     @Override
@@ -54,8 +56,9 @@ public class ApplicationServiceImpl implements ApplicationService {
 
     @Override
     public List<Application> listByUser(Integer userId, int page, int size) {
-        int offset = (page - 1) * size;
-        return applicationMapper.findByUserId(userId, offset, size);
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
+        return applicationMapper.findByUserId(userId, offset, pageSize);
     }
 
     @Override
@@ -69,7 +72,14 @@ public class ApplicationServiceImpl implements ApplicationService {
     }
 
     @Override
+    @Transactional
     public Application submit(Integer userId, Integer clubId, Integer recruitmentId, String introduction) {
+        if (introduction != null) {
+            introduction = introduction.trim();
+        }
+        if (introduction != null && introduction.length() > 1000) {
+            throw new RuntimeException("申请理由不能超过1000字");
+        }
         Club club = clubMapper.findById(clubId);
         if (club == null || !"approved".equals(club.getStatus())) {
             throw new RuntimeException("只能申请加入已成立社团");
@@ -106,7 +116,7 @@ public class ApplicationServiceImpl implements ApplicationService {
     public void approve(Integer id, Integer reviewerId, String comments) {
         Application application = requirePendingApplication(id);
         if (application.getRecruitmentId() != null) {
-            RecruitmentPlan recruitment = recruitmentPlanMapper.findById(application.getRecruitmentId());
+            RecruitmentPlan recruitment = recruitmentPlanMapper.findByIdForUpdate(application.getRecruitmentId());
             validateRecruitment(recruitment);
         }
 
@@ -120,6 +130,7 @@ public class ApplicationServiceImpl implements ApplicationService {
     }
 
     @Override
+    @Transactional
     public void reject(Integer id, Integer reviewerId, String comments) {
         requirePendingApplication(id);
         Application reviewed = new Application();
@@ -130,7 +141,7 @@ public class ApplicationServiceImpl implements ApplicationService {
     }
 
     private Application requirePendingApplication(Integer id) {
-        Application application = applicationMapper.findById(id);
+        Application application = applicationMapper.findByIdForUpdate(id);
         if (application == null) {
             throw new RuntimeException("入社申请不存在");
         }
@@ -145,7 +156,7 @@ public class ApplicationServiceImpl implements ApplicationService {
             return clubId;
         }
         if (!adminOrTeacher) {
-            Club managedClub = clubMapper.findManageable(currentUserId, null, 0, 1).stream().findFirst().orElse(null);
+            Club managedClub = clubMapper.findManageable(currentUserId, null, false, 0, 1).stream().findFirst().orElse(null);
             if (managedClub == null) {
                 throw new RuntimeException("当前用户未绑定可管理社团");
             }

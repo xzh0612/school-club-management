@@ -44,7 +44,7 @@ import { useRouter, useRoute } from 'vue-router'
 
 const router = useRouter()
 const route = useRoute()
-const user = computed(() => JSON.parse(localStorage.getItem('user') || '{}'))
+const user = computed(() => JSON.parse(sessionStorage.getItem('user') || '{}'))
 
 const currentTitle = computed(() => route.meta.title || '社团广场')
 
@@ -57,7 +57,7 @@ const navItems = [
 ]
 
 function handleLogout() {
-  localStorage.removeItem('user')
+  sessionStorage.removeItem('user')
   router.push('/login')
 }
 </script>

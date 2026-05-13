@@ -19,10 +19,10 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(jwtConfig.getSecret().getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateToken(Long userId, String username, String role) {
+    public String generateToken(Long userId, String username, String role, Integer tokenVersion) {
         return Jwts.builder()
                 .subject(String.valueOf(userId))
-                .claims(Map.of("username", username, "role", role))
+                .claims(Map.of("username", username, "role", role, "tokenVersion", tokenVersion == null ? 0 : tokenVersion))
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + jwtConfig.getExpiration()))
                 .signWith(getKey())

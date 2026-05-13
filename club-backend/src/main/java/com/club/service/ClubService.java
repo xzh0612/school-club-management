@@ -5,9 +5,10 @@ import java.util.List;
 
 public interface ClubService {
     List<Club> list(String status, String keyword, int page, int size);
-    List<Club> listManageable(Integer userId, Integer clubId, int page, int size);
+    List<Club> listManageable(Integer userId, Integer clubId, boolean includeAdvisor, int page, int size);
     int count(String status, String keyword);
-    int countManageable(Integer userId, Integer clubId);
+    int countManageable(Integer userId, Integer clubId, boolean includeAdvisor);
+    java.util.Map<String, Integer> stats(Integer userId, Integer clubId, boolean includeAdvisor, boolean global);
     Club getById(Long id);
     Club create(Club club);
     Club update(Club club);
@@ -16,8 +17,8 @@ public interface ClubService {
     int searchCount(String keyword);
     List<Club> searchByStatus(String keyword, String status, int page, int size);
     int searchCountByStatus(String keyword, String status);
-    List<Club> searchManageable(String keyword, Integer userId, Integer clubId, int page, int size);
-    int searchManageableCount(String keyword, Integer userId, Integer clubId);
+    List<Club> searchManageable(String keyword, Integer userId, Integer clubId, boolean includeAdvisor, int page, int size);
+    int searchManageableCount(String keyword, Integer userId, Integer clubId, boolean includeAdvisor);
     List<User> getMembers(Long clubId, int page, int size);
     int getMemberCount(Long clubId);
     List<Activity> getActivities(Long clubId, String status, int page, int size);

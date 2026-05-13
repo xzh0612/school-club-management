@@ -1,10 +1,10 @@
 <template>
   <div>
     <div class="stats-grid">
-      <div class="stat-card"><div class="icon-bg">📋</div><div class="label">待审批</div><div class="value">{{ approvals.filter(a => a.status === 'pending').length }}</div></div>
-      <div class="stat-card"><div class="icon-bg">✅</div><div class="label">已通过</div><div class="value">{{ approvals.filter(a => a.status === 'approved').length }}</div></div>
-      <div class="stat-card"><div class="icon-bg">❌</div><div class="label">已驳回</div><div class="value">{{ approvals.filter(a => a.status === 'rejected').length }}</div></div>
-      <div class="stat-card"><div class="icon-bg">📊</div><div class="label">总数</div><div class="value">{{ approvals.length }}</div></div>
+      <div class="stat-card"><div class="icon-bg">📋</div><div class="label">待审批</div><div class="value">{{ approvalStats.pending }}</div></div>
+      <div class="stat-card"><div class="icon-bg">✅</div><div class="label">已通过</div><div class="value">{{ approvalStats.approved }}</div></div>
+      <div class="stat-card"><div class="icon-bg">❌</div><div class="label">已驳回</div><div class="value">{{ approvalStats.rejected }}</div></div>
+      <div class="stat-card"><div class="icon-bg">📊</div><div class="label">总数</div><div class="value">{{ approvalStats.total }}</div></div>
     </div>
     <div class="card">
       <div class="card-header">
@@ -49,6 +49,7 @@ import { getApprovalList, approveApplication, rejectApplication } from '../../ap
 const loading = ref(false)
 const typeFilter = ref('')
 const approvals = ref([])
+const approvalStats = ref({ pending: 0, approved: 0, rejected: 0, total: 0 })
 
 const extractRecords = (payload) => payload?.records || payload?.list || (Array.isArray(payload) ? payload : [])
 const filteredApprovals = computed(() => typeFilter.value ? approvals.value.filter(a => a.type === typeFilter.value) : approvals.value)
@@ -61,8 +62,19 @@ const formatDate = (value) => value ? new Date(value).toLocaleString('zh-CN') : 
 const fetchApprovals = async () => {
   loading.value = true
   try {
-    const response = await getApprovalList({ page: 1, size: 100 })
-    approvals.value = extractRecords(response.data).filter(a => a.type !== 'recruitment_application')
+    const [response, pending, approved, rejected] = await Promise.all([
+      getApprovalList({ page: 1, size: 100 }),
+      getApprovalList({ page: 1, size: 1, status: 'pending' }),
+      getApprovalList({ page: 1, size: 1, status: 'approved' }),
+      getApprovalList({ page: 1, size: 1, status: 'rejected' })
+    ])
+    approvals.value = extractRecords(response.data)
+    approvalStats.value = {
+      pending: pending.data?.total || 0,
+      approved: approved.data?.total || 0,
+      rejected: rejected.data?.total || 0,
+      total: response.data?.total || approvals.value.length
+    }
   } catch (error) {
     console.error('加载审批失败:', error)
     approvals.value = []

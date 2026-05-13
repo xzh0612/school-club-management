@@ -65,6 +65,16 @@ export function searchClubs(keyword, page = 1, size = 10) {
 }
 
 /**
+ * 获取社团管理统计
+ */
+export function getClubStats() {
+  return request({
+    url: '/clubs/stats',
+    method: 'get'
+  })
+}
+
+/**
  * 获取社团成员
  */
 export function getClubMembers(clubId, page = 1, size = 10) {

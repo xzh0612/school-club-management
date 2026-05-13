@@ -11,7 +11,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @RequiredArgsConstructor
 public class WebMvcConfig implements WebMvcConfigurer {
 
-    private final JwtInterceptor jwtInterceptor;
+    private final OperationLogInterceptor operationLogInterceptor;
 
     @Bean
     public BCryptPasswordEncoder passwordEncoder() {
@@ -20,7 +20,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(jwtInterceptor)
+        registry.addInterceptor(operationLogInterceptor)
                 .addPathPatterns("/api/**")
                 .excludePathPatterns("/api/login", "/api/register", "/api/auth/**");
     }

@@ -23,6 +23,18 @@ public interface ClubMemberMapper {
     @Select("SELECT member_id AS id, club_id, user_id, role, status, join_time FROM club_members WHERE club_id = #{clubId} AND user_id = #{userId}")
     ClubMember findByClubAndUser(@Param("clubId") Integer clubId, @Param("userId") Integer userId);
 
+    @Select("SELECT club_id FROM club_members WHERE user_id = #{userId} AND status = 'active'")
+    List<Integer> findActiveClubIdsByUser(Integer userId);
+
+    @Select("SELECT club_id FROM club_members WHERE user_id = #{userId} AND role IN ('leader','club_leader') AND status = 'active' ORDER BY join_time DESC")
+    List<Integer> findActiveLeaderClubIdsByUser(Integer userId);
+
+    @Select("SELECT COUNT(*) FROM club_members WHERE club_id = #{clubId} AND user_id = #{userId} AND role IN ('leader','club_leader') AND status = 'active'")
+    int countActiveLeaderMembership(@Param("clubId") Integer clubId, @Param("userId") Integer userId);
+
+    @Select("SELECT COUNT(*) FROM club_members WHERE club_id = #{clubId} AND role IN ('leader','club_leader') AND status = 'active'")
+    int countActiveLeadersByClub(Integer clubId);
+
     @Insert("INSERT INTO club_members(club_id, user_id, role, status) VALUES(#{clubId}, #{userId}, #{role}, #{status})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(ClubMember member);
@@ -30,6 +42,6 @@ public interface ClubMemberMapper {
     @Update("UPDATE club_members SET role = #{role}, status = #{status} WHERE member_id = #{id}")
     int update(ClubMember member);
 
-    @Delete("DELETE FROM club_members WHERE club_id = #{clubId} AND user_id = #{userId}")
+    @Update("UPDATE club_members SET status = 'removed' WHERE club_id = #{clubId} AND user_id = #{userId}")
     int deleteByClubAndUser(@Param("clubId") Integer clubId, @Param("userId") Integer userId);
 }

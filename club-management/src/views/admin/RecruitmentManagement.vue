@@ -9,7 +9,7 @@
       <div class="card-header"><h3>招新计划管理</h3><button class="btn btn-primary btn-sm" @click="openRecruitForm">＋ 发布招新计划</button></div>
       <table class="data-table">
         <thead><tr><th>社团名称</th><th>招新标题</th><th>招新人数</th><th>已申请</th><th>开始时间</th><th>截止时间</th><th>状态</th><th>操作</th></tr></thead>
-        <tbody><tr v-for="p in plans" :key="p.recruitmentId"><td>{{ p.clubName }}</td><td>{{ p.title }}</td><td>{{ p.quota }}</td><td>{{ p.appliedCount || 0 }}</td><td>{{ p.startDate }}</td><td>{{ p.endDate }}</td><td><span class="tag tag-green">{{ p.status }}</span></td><td><button class="btn btn-warning btn-sm" @click="editPlan(p)">编辑</button><button class="btn btn-danger btn-sm" @click="removePlan(p)" style="margin-left:8px">删除</button></td></tr></tbody>
+        <tbody><tr v-for="p in plans" :key="p.recruitmentId"><td>{{ p.clubName }}</td><td>{{ p.title }}</td><td>{{ p.quota }}</td><td>{{ p.appliedCount || 0 }}</td><td>{{ p.startDate }}</td><td>{{ p.endDate }}</td><td><span :class="['tag', statusClass(p.status)]">{{ statusText(p.status) }}</span></td><td><button class="btn btn-warning btn-sm" @click="editPlan(p)">编辑</button><button class="btn btn-danger btn-sm" @click="removePlan(p)" style="margin-left:8px">归档</button></td></tr></tbody>
       </table>
       <div v-if="plans.length === 0" class="empty-state">暂无招新计划</div>
     </div>
@@ -37,6 +37,8 @@ const showRecruitForm = ref(false)
 const isEditing = ref(false)
 const editingPlan = ref(null)
 const extractRecords = (payload) => payload?.records || payload?.list || (Array.isArray(payload) ? payload : [])
+const statusText = (status) => ({ active: '进行中', closed: '已结束', inactive: '已停用', archived: '已归档' }[status] || status)
+const statusClass = (status) => ({ active: 'tag-green', closed: 'tag-gray', inactive: 'tag-gray', archived: 'tag-gray' }[status] || 'tag-blue')
 
 const fetchPlans = async () => {
   const response = await getRecruitmentPlans({ page: 1, size: 100 })

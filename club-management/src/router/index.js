@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { getUserInfo } from '../api/auth'
 
 const routes = [
   {
@@ -15,7 +16,7 @@ const routes = [
     children: [
       { path: 'dashboard', name: 'AdminDashboard', component: () => import('../views/admin/Dashboard.vue'), meta: { title: '仪表盘' } },
       { path: 'users', name: 'UserManagement', component: () => import('../views/admin/UserManagement.vue'), meta: { title: '用户管理' } },
-      { path: 'roles', name: 'RoleManagement', component: () => import('../views/admin/RoleManagement.vue'), meta: { title: '权限配置' } },
+      { path: 'roles', name: 'RoleManagement', component: () => import('../views/admin/RoleManagement.vue'), meta: { title: '角色说明' } },
       { path: 'clubs', name: 'ClubManagement', component: () => import('../views/admin/ClubManagement.vue'), meta: { title: '社团管理' } },
       { path: 'approval', name: 'ApprovalCenter', component: () => import('../views/admin/ApprovalCenter.vue'), meta: { title: '审批中心' } },
       { path: 'activities', name: 'ActivityManagement', component: () => import('../views/admin/ActivityManagement.vue'), meta: { title: '活动管理' } },
@@ -46,6 +47,12 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
+})
+
+window.addEventListener('auth:expired', () => {
+  if (router.currentRoute.value.path !== '/login') {
+    router.replace('/login')
+  }
 })
 
 function normalizeRole(role) {
@@ -92,11 +99,27 @@ function fallbackRoute(role) {
   return map[role] || '/login'
 }
 
-// Navigation guard
-router.beforeEach((to, from, next) => {
-  document.title = `${to.meta.title || '社团管理系统'} - 学校社团管理系统`
-  const user = JSON.parse(localStorage.getItem('user') || 'null')
+function normalizeUser(user) {
   const normalizedRole = normalizeRole(user?.role)
+  return {
+    role: normalizedRole,
+    name: user?.realName || user?.name,
+    avatar: (user?.realName || user?.name || user?.username || 'U').charAt(0),
+    color: user?.avatarColor || '#3B82F6',
+    username: user?.username,
+    id: user?.userId || user?.id
+  }
+}
+
+function clearSession() {
+  sessionStorage.removeItem('user')
+  sessionStorage.removeItem('token')
+}
+
+// Navigation guard
+router.beforeEach(async (to, from, next) => {
+  document.title = `${to.meta.title || '社团管理系统'} - 学校社团管理系统`
+  const token = sessionStorage.getItem('token')
   
   // 检查是否是公共路径（登录页）
   if (to.meta.public) {
@@ -105,10 +128,23 @@ router.beforeEach((to, from, next) => {
   }
   
   // 未登录，跳转到登录页
-  if (!user) {
+  if (!token) {
     next({ path: '/login', replace: true })
     return
   }
+
+  let user
+  try {
+    const res = await getUserInfo()
+    user = normalizeUser(res.data)
+    sessionStorage.setItem('user', JSON.stringify(user))
+  } catch (error) {
+    clearSession()
+    next({ path: '/login', replace: true })
+    return
+  }
+
+  const normalizedRole = normalizeRole(user?.role)
   
   // 检查管理员路径权限
   if (to.path.startsWith('/admin')) {

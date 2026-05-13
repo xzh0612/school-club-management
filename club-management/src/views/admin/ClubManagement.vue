@@ -9,7 +9,7 @@
     <div class="card">
       <div class="card-header"><h3>社团列表</h3><div style="display:flex;gap:8px"><input class="search-input" style="width:180px" placeholder="搜索社团名称..." v-model="searchKeyword" @keyup.enter="handleSearch" /><select class="filter-select" v-model="typeFilter"><option value="">全部类型</option><option value="academic">学术科技</option><option value="culture">文化艺术</option><option value="sports">体育竞技</option><option value="volunteer">公益志愿</option><option value="innovation">创新创业</option><option value="general">综合类</option></select><button class="btn btn-primary btn-sm" @click="handleSearch">🔍 搜索</button></div></div>
       <div class="club-grid">
-        <div class="club-card" v-for="c in filteredClubs" :key="c.id">
+        <div class="club-card" v-for="c in filteredClubs" :key="c.id" @click="openMembers(c)">
           <div class="club-cover" :style="{ background: c.gradient }">{{ c.icon }}</div>
           <div class="club-info">
             <h4>{{ c.name }}</h4>
@@ -19,14 +19,48 @@
         </div>
       </div>
     </div>
+    <div v-if="selectedClub" class="card" style="margin-top:16px">
+      <div class="card-header">
+        <h3>{{ selectedClub.name }} 成员管理</h3>
+        <button class="btn btn-outline btn-sm" @click="closeMembers">关闭</button>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>成员</th><th>学号</th><th>社团身份</th><th>状态</th><th>加入时间</th><th v-if="canManageMembers">操作</th></tr></thead>
+        <tbody>
+          <tr v-for="m in members" :key="m.id || `${m.clubId}-${m.userId}`">
+            <td>{{ m.userName || '—' }}</td>
+            <td>{{ m.studentId || '—' }}</td>
+            <td>
+              <select v-if="canManageMembers" class="inline-select" v-model="m.role" @change="updateMember(m)">
+                <option value="leader">社长</option>
+                <option value="member">社员</option>
+              </select>
+              <span v-else>{{ roleText(m.role) }}</span>
+            </td>
+            <td>
+              <select v-if="canManageMembers" class="inline-select" v-model="m.status" @change="updateMember(m)">
+                <option value="active">正常</option>
+                <option value="inactive">停用</option>
+              </select>
+              <span v-else :class="['tag', m.status === 'active' ? 'tag-green' : 'tag-gray']">{{ statusText(m.status) }}</span>
+            </td>
+            <td>{{ formatDate(m.joinTime) }}</td>
+            <td v-if="canManageMembers"><button class="btn btn-danger btn-sm" @click="deleteMember(m)">移除</button></td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-if="members.length === 0" class="empty-state">暂无成员数据</div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { computed, ref, onMounted } from 'vue'
-import { getClubList, getClubMembers } from '../../api/club'
+import { getClubList, getClubMembers, getClubStats, removeClubMember, updateClubMember } from '../../api/club'
 
 const clubs = ref([])
+const members = ref([])
+const selectedClub = ref(null)
 const totalClubs = ref(0)
 const approvedClubs = ref(0)
 const pendingClubs = ref(0)
@@ -36,6 +70,8 @@ const pageSize = ref(6)
 const loading = ref(false)
 const searchKeyword = ref('')
 const typeFilter = ref('')
+const currentRole = computed(() => JSON.parse(sessionStorage.getItem('user') || '{}').role)
+const canManageMembers = computed(() => currentRole.value === 'club_leader')
 
 // 获取社团列表
 const fetchClubs = async () => {
@@ -67,10 +103,7 @@ const fetchClubs = async () => {
       advisorName: club.advisorName
     }}))
     
-    totalClubs.value = response.data.total
-    approvedClubs.value = clubs.value.filter(c => c.status === 'approved').length
-    pendingClubs.value = clubs.value.filter(c => c.status === 'pending').length
-    classifiedClubs.value = clubs.value.filter(c => c.typeKey !== 'general').length
+    await fetchClubStats()
   } catch (error) {
     console.error('获取社团列表失败:', error)
   } finally {
@@ -78,11 +111,55 @@ const fetchClubs = async () => {
   }
 }
 
+const fetchClubStats = async () => {
+  const response = await getClubStats()
+  totalClubs.value = response.data?.total || 0
+  approvedClubs.value = response.data?.approved || 0
+  pendingClubs.value = response.data?.pending || 0
+  classifiedClubs.value = response.data?.classified || 0
+}
+
 // 搜索社团
 const handleSearch = () => {
   currentPage.value = 1
   fetchClubs()
 }
+
+const openMembers = async (club) => {
+  selectedClub.value = club
+  await fetchMembers()
+}
+
+const closeMembers = () => {
+  selectedClub.value = null
+  members.value = []
+}
+
+const fetchMembers = async () => {
+  if (!selectedClub.value) return
+  const response = await getClubMembers(selectedClub.value.id, 1, 100)
+  members.value = response.data?.records || []
+}
+
+const updateMember = async (member) => {
+  await updateClubMember(selectedClub.value.id, member.userId, {
+    role: member.role,
+    status: member.status
+  })
+  await fetchMembers()
+  await fetchClubs()
+}
+
+const deleteMember = async (member) => {
+  if (!confirm(`确定移除 ${member.userName || '该成员'} 吗？`)) return
+  await removeClubMember(selectedClub.value.id, member.userId)
+  await fetchMembers()
+  await fetchClubs()
+}
+
+const roleText = (role) => ({ leader: '社长', club_leader: '社长', member: '社员' }[role] || role)
+const statusText = (status) => ({ active: '正常', inactive: '停用' }[status] || status)
+const formatDate = (value) => value ? new Date(value).toLocaleString('zh-CN') : '—'
 
 const filteredClubs = computed(() => clubs.value.filter(c => {
   const matchKeyword = !searchKeyword.value || c.name.includes(searchKeyword.value) || c.desc.includes(searchKeyword.value)
@@ -157,4 +234,5 @@ onMounted(() => {
 .club-info h4 { font-size: 14px; margin-bottom: 4px; }
 .club-desc { font-size: 12px; color: #6B7280; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .club-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 12px; color: #9CA3AF; }
+.inline-select { min-width: 84px; padding: 6px 8px; border: 1px solid #D1D5DB; border-radius: 4px; background: #fff; }
 </style>

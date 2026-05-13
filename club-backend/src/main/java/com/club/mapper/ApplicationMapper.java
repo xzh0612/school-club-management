@@ -21,6 +21,14 @@ public interface ApplicationMapper {
             "LEFT JOIN users u ON app.user_id = u.user_id " +
             "LEFT JOIN clubs c ON app.club_id = c.club_id " +
             "LEFT JOIN recruitments r ON app.recruitment_id = r.recruitment_id " +
+            "WHERE app.application_id = #{applicationId} FOR UPDATE")
+    Application findByIdForUpdate(Integer applicationId);
+
+    @Select("SELECT app.*, u.real_name AS user_name, u.student_id AS user_sid, c.club_name, r.title AS recruitment_title " +
+            "FROM applications app " +
+            "LEFT JOIN users u ON app.user_id = u.user_id " +
+            "LEFT JOIN clubs c ON app.club_id = c.club_id " +
+            "LEFT JOIN recruitments r ON app.recruitment_id = r.recruitment_id " +
             "ORDER BY app.apply_time DESC LIMIT #{offset}, #{limit}")
     List<Application> findAll(@Param("offset") int offset, @Param("limit") int limit);
 

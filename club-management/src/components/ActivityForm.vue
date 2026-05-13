@@ -249,7 +249,9 @@ const handleSubmit = async () => {
 const loadClubs = async () => {
   const response = await getClubList(1, 100, 'approved', '')
   const records = response.data?.records || []
-  clubs.value = records.map(club => ({ id: club.clubId, name: club.clubName }))
+  clubs.value = records
+    .filter(club => club.status === 'approved')
+    .map(club => ({ id: club.clubId, name: club.clubName }))
 }
 
 onMounted(loadClubs)

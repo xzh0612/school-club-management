@@ -51,7 +51,7 @@ import { useRouter, useRoute } from 'vue-router'
 
 const router = useRouter()
 const route = useRoute()
-const user = computed(() => JSON.parse(localStorage.getItem('user') || '{}'))
+const user = computed(() => JSON.parse(sessionStorage.getItem('user') || '{}'))
 const currentRole = computed(() => user.value.role || '')
 
 const currentTitle = computed(() => route.meta.title || '')
@@ -67,7 +67,7 @@ const navGroups = [
     name: '系统管理',
     items: [
       { path: '/admin/users', icon: '👤', label: '用户管理', roles: ['admin'] },
-      { path: '/admin/roles', icon: '🔐', label: '权限配置', roles: ['admin'] },
+      { path: '/admin/roles', icon: '🔐', label: '角色说明', roles: ['admin'] },
       { path: '/admin/logs', icon: '📝', label: '操作日志', roles: ['admin'] }
     ]
   },
@@ -108,7 +108,7 @@ function isActive(path) {
 }
 
 function handleLogout() {
-  localStorage.removeItem('user')
+  sessionStorage.removeItem('user')
   router.push('/login')
 }
 </script>

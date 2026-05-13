@@ -2,14 +2,14 @@
   <div>
     <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
       <div class="stat-card"><div class="icon-bg">👥</div><div class="label">用户总数</div><div class="value">{{ totalUsers }}</div></div>
-      <div class="stat-card"><div class="icon-bg">👤</div><div class="label">管理员</div><div class="value">{{ users.filter(u => u.role === '系统管理员').length }}</div></div>
+      <div class="stat-card"><div class="icon-bg">👤</div><div class="label">管理员</div><div class="value">{{ users.filter(u => u.rawRole === 'admin').length }}</div></div>
       <div class="stat-card"><div class="icon-bg">🎓</div><div class="label">本学期新增</div><div class="value">{{ users.length }}</div></div>
     </div>
     <div class="card">
       <div class="card-header">
         <h3>用户列表</h3>
         <div style="display:flex;gap:8px">
-          <button class="btn btn-outline btn-sm">📥 导出</button>
+          <button class="btn btn-outline btn-sm" @click="exportUsers">📥 导出</button>
           <button class="btn btn-primary btn-sm" @click="showAddUserDialog = true">＋ 新增用户</button>
         </div>
       </div>
@@ -22,10 +22,10 @@
           <option value="student">普通学生</option>
           <option value="teacher">指导老师</option>
         </select>
-        <select class="filter-select" v-model="statusFilter">
+        <select class="filter-select" v-model="statusFilter" @change="fetchUsers">
           <option value="">全部状态</option>
-          <option>正常</option>
-          <option>禁用</option>
+          <option value="active">正常</option>
+          <option value="inactive">禁用</option>
         </select>
         <button class="btn btn-primary btn-sm" @click="handleSearch">🔍 搜索</button>
       </div>
@@ -40,8 +40,11 @@
             <td><span :class="['tag', u.status==='正常'?'tag-green':'tag-gray']">{{u.status}}</span></td>
             <td>{{u.lastLogin}}</td>
             <td>
-              <button v-if="canEditUser(u.rawRole)" class="btn btn-outline btn-sm" @click="handleEditClick(u)">编辑</button>
-              <span v-else style="color:#9CA3AF;font-size:12px">社团负责人维护</span>
+              <template v-if="canEditUser(u.rawRole)">
+                <button class="btn btn-outline btn-sm" @click="handleEditClick(u)">编辑</button>
+                <button class="btn btn-danger btn-sm" @click="handleDeleteUser(u)" style="margin-left:8px">删除</button>
+              </template>
+              <span v-else style="color:#9CA3AF;font-size:12px">本人/社长维护</span>
             </td>
           </tr>
         </tbody>
@@ -144,8 +147,6 @@
               <option value="">请选择角色</option>
               <option value="admin">系统管理员</option>
               <option value="teacher">指导老师</option>
-              <option value="club_leader">社团负责人</option>
-              <option value="student">普通学生</option>
             </select>
           </div>
           <div class="form-group">
@@ -186,10 +187,10 @@ const fetchUsers = async () => {
     let response
     if (keyword.value) {
       // 搜索用户
-      response = await searchUsers(keyword.value, currentPage.value, pageSize.value)
+      response = await searchUsers(keyword.value, currentPage.value, pageSize.value, roleFilter.value, statusFilter.value)
     } else {
       // 获取用户列表
-      response = await getUserList(currentPage.value, pageSize.value, roleFilter.value)
+      response = await getUserList(currentPage.value, pageSize.value, roleFilter.value, statusFilter.value)
     }
     
     users.value = response.data.records.map(user => ({
@@ -256,6 +257,35 @@ const getRoleClass = (role) => {
 }
 
 const canEditUser = (role) => ['admin', 'teacher'].includes(role)
+
+const csvCell = (value) => {
+  const text = value == null ? '' : String(value)
+  return `"${text.replace(/"/g, '""')}"`
+}
+
+const exportUsers = () => {
+  const rows = [
+    ['用户名', '姓名', '学号/工号', '角色', '所属社团', '状态', '邮箱', '最后登录'],
+    ...users.value.map(user => [
+      user.username,
+      user.name,
+      user.studentId || '',
+      user.role,
+      user.club,
+      user.status,
+      user.email || '',
+      user.lastLogin || ''
+    ])
+  ]
+  const csv = rows.map(row => row.map(csvCell).join(',')).join('\n')
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `users-page-${currentPage.value}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
 
 // 格式化日期
 const formatDate = (dateString) => {
@@ -351,6 +381,10 @@ const handleAddUser = async () => {
 
 // 处理编辑点击
 const handleEditClick = (user) => {
+  if (!canEditUser(user.rawRole)) {
+    alert('普通社员和社团负责人资料由本人或社长维护')
+    return
+  }
   // 将用户数据填充到编辑表单
   editUser.value = {
     userId: user.id,
@@ -362,6 +396,22 @@ const handleEditClick = (user) => {
     phone: user.phone || ''
   }
   showEditUserDialog.value = true
+}
+
+const handleDeleteUser = async (user) => {
+  if (!canEditUser(user.rawRole)) {
+    alert('普通社员和社团负责人账号不能在用户管理中直接删除')
+    return
+  }
+  if (!confirm(`确定删除账号 "${user.name}" 吗？`)) return
+  try {
+    await deleteUser(user.id)
+    alert('用户删除成功')
+    await fetchUsers()
+  } catch (error) {
+    console.error('删除用户失败:', error)
+    alert('删除用户失败: ' + (error.response?.data?.msg || error.message))
+  }
 }
 
 // 处理编辑用户

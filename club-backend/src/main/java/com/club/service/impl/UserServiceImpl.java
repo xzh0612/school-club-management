@@ -1,5 +1,6 @@
 package com.club.service.impl;
 
+import com.club.common.PageQuery;
 import com.club.config.JwtUtil;
 import com.club.entity.*;
 import com.club.mapper.UserMapper;
@@ -33,7 +34,7 @@ public class UserServiceImpl implements UserService {
         vo.setUsername(user.getUsername());
         vo.setName(user.getRealName());
         vo.setRole(user.getRole());
-        vo.setToken(jwtUtil.generateToken(user.getUserId().longValue(), user.getUsername(), user.getRole()));
+        vo.setToken(jwtUtil.generateToken(user.getUserId().longValue(), user.getUsername(), user.getRole(), user.getTokenVersion()));
         return vo;
     }
 
@@ -43,10 +44,13 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public List<User> list(String role, int page, int size) {
-        int offset = (page - 1) * size;
-        if (role != null && !role.isEmpty()) return userMapper.findByRole(role, offset, size);
-        return userMapper.findAll(offset, size);
+    public List<User> list(String role, String status, int page, int size) {
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
+        if ((role != null && !role.isEmpty()) || (status != null && !status.isEmpty())) {
+            return userMapper.findFiltered(role, status, offset, pageSize);
+        }
+        return userMapper.findAll(offset, pageSize);
     }
 
     @Override
@@ -54,13 +58,16 @@ public class UserServiceImpl implements UserService {
         if (clubId == null) {
             return List.of();
         }
-        int offset = (page - 1) * size;
-        return userMapper.findByClubId(clubId, offset, size);
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
+        return userMapper.findByClubId(clubId, offset, pageSize);
     }
 
     @Override
-    public int count(String role) {
-        if (role != null && !role.isEmpty()) return userMapper.countByRole(role);
+    public int count(String role, String status) {
+        if ((role != null && !role.isEmpty()) || (status != null && !status.isEmpty())) {
+            return userMapper.countFiltered(role, status);
+        }
         return userMapper.countAll();
     }
 
@@ -86,19 +93,25 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public void invalidateTokens(Integer userId) {
+        userMapper.incrementTokenVersion(userId);
+    }
+
+    @Override
     public void delete(Integer userId) {
         userMapper.deleteById(userId);
     }
 
     @Override
-    public List<User> search(String keyword, int page, int size) {
-        int offset = (page - 1) * size;
-        return userMapper.search(keyword, offset, size);
+    public List<User> search(String keyword, String role, String status, int page, int size) {
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
+        return userMapper.searchFiltered(keyword, role, status, offset, pageSize);
     }
 
     @Override
-    public int searchCount(String keyword) {
-        return userMapper.searchCount(keyword);
+    public int searchCount(String keyword, String role, String status) {
+        return userMapper.searchCountFiltered(keyword, role, status);
     }
 
     @Override

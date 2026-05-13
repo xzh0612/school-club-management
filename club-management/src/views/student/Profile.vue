@@ -247,8 +247,8 @@ const submitProfile = async () => {
         phone: editForm.phone,
         email: editForm.email
       })
-      const user = JSON.parse(localStorage.getItem('user') || '{}')
-      localStorage.setItem('user', JSON.stringify({
+      const user = JSON.parse(sessionStorage.getItem('user') || '{}')
+      sessionStorage.setItem('user', JSON.stringify({
         ...user,
         name: editForm.realName,
         avatar: editForm.realName?.charAt(0) || user.avatar || 'U'

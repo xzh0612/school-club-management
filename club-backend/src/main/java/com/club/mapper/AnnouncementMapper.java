@@ -42,13 +42,14 @@ public interface AnnouncementMapper {
             "<if test='targetType != null and targetType != \"\"'>AND a.target_type = #{targetType} </if>" +
             "<if test='isTop != null'>AND a.is_top = #{isTop} </if>" +
             "<choose>" +
-            "<when test='clubId != null'>AND (a.target_type = 'all' OR (a.target_type = 'club' AND a.target_id = #{clubId})) </when>" +
+            "<when test='clubIds != null and clubIds.size() > 0'>AND (a.target_type = 'all' OR (a.target_type = 'club' AND a.target_id IN " +
+            "<foreach collection='clubIds' item='clubId' open='(' separator=',' close=')'>#{clubId}</foreach>)) </when>" +
             "<otherwise>AND a.target_type = 'all' </otherwise>" +
             "</choose>" +
             "ORDER BY a.is_top DESC, a.publish_time DESC " +
             "LIMIT #{offset}, #{limit}" +
             "</script>")
-    List<Announcement> findVisible(@Param("clubId") Integer clubId, @Param("targetType") String targetType, @Param("isTop") Boolean isTop, @Param("offset") int offset, @Param("limit") int limit);
+    List<Announcement> findVisible(@Param("clubIds") List<Integer> clubIds, @Param("targetType") String targetType, @Param("isTop") Boolean isTop, @Param("offset") int offset, @Param("limit") int limit);
 
     @Select("<script>" +
             "SELECT COUNT(*) FROM announcements a " +
@@ -56,11 +57,12 @@ public interface AnnouncementMapper {
             "<if test='targetType != null and targetType != \"\"'>AND a.target_type = #{targetType} </if>" +
             "<if test='isTop != null'>AND a.is_top = #{isTop} </if>" +
             "<choose>" +
-            "<when test='clubId != null'>AND (a.target_type = 'all' OR (a.target_type = 'club' AND a.target_id = #{clubId})) </when>" +
+            "<when test='clubIds != null and clubIds.size() > 0'>AND (a.target_type = 'all' OR (a.target_type = 'club' AND a.target_id IN " +
+            "<foreach collection='clubIds' item='clubId' open='(' separator=',' close=')'>#{clubId}</foreach>)) </when>" +
             "<otherwise>AND a.target_type = 'all' </otherwise>" +
             "</choose>" +
             "</script>")
-    int countVisible(@Param("clubId") Integer clubId, @Param("targetType") String targetType, @Param("isTop") Boolean isTop);
+    int countVisible(@Param("clubIds") List<Integer> clubIds, @Param("targetType") String targetType, @Param("isTop") Boolean isTop);
 
     @Select("<script>" +
             "SELECT a.*, u.real_name as publisher_name " +
@@ -89,7 +91,7 @@ public interface AnnouncementMapper {
     @Update("UPDATE announcements SET title = #{title}, content = #{content}, target_type = #{targetType}, target_id = #{targetId}, is_top = #{isTop}, status = #{status}, update_time = NOW() WHERE announcement_id = #{announcementId}")
     int update(Announcement announcement);
     
-    @Delete("DELETE FROM announcements WHERE announcement_id = #{announcementId}")
+    @Update("UPDATE announcements SET status = 'archived' WHERE announcement_id = #{announcementId}")
     int deleteById(Integer announcementId);
     
     @Update("UPDATE announcements SET view_count = view_count + 1 WHERE announcement_id = #{announcementId}")
@@ -125,24 +127,26 @@ public interface AnnouncementMapper {
             "WHERE a.title LIKE CONCAT('%',#{keyword},'%') " +
             "AND a.status = 'published' " +
             "<choose>" +
-            "<when test='clubId != null'>AND (a.target_type = 'all' OR (a.target_type = 'club' AND a.target_id = #{clubId})) </when>" +
+            "<when test='clubIds != null and clubIds.size() > 0'>AND (a.target_type = 'all' OR (a.target_type = 'club' AND a.target_id IN " +
+            "<foreach collection='clubIds' item='clubId' open='(' separator=',' close=')'>#{clubId}</foreach>)) </when>" +
             "<otherwise>AND a.target_type = 'all' </otherwise>" +
             "</choose>" +
             "ORDER BY a.is_top DESC, a.publish_time DESC " +
             "LIMIT #{offset}, #{limit}" +
             "</script>")
-    List<Announcement> searchVisible(@Param("keyword") String keyword, @Param("clubId") Integer clubId, @Param("offset") int offset, @Param("limit") int limit);
+    List<Announcement> searchVisible(@Param("keyword") String keyword, @Param("clubIds") List<Integer> clubIds, @Param("offset") int offset, @Param("limit") int limit);
 
     @Select("<script>" +
             "SELECT COUNT(*) FROM announcements a " +
             "WHERE a.title LIKE CONCAT('%',#{keyword},'%') " +
             "AND a.status = 'published' " +
             "<choose>" +
-            "<when test='clubId != null'>AND (a.target_type = 'all' OR (a.target_type = 'club' AND a.target_id = #{clubId})) </when>" +
+            "<when test='clubIds != null and clubIds.size() > 0'>AND (a.target_type = 'all' OR (a.target_type = 'club' AND a.target_id IN " +
+            "<foreach collection='clubIds' item='clubId' open='(' separator=',' close=')'>#{clubId}</foreach>)) </when>" +
             "<otherwise>AND a.target_type = 'all' </otherwise>" +
             "</choose>" +
             "</script>")
-    int searchVisibleCount(@Param("keyword") String keyword, @Param("clubId") Integer clubId);
+    int searchVisibleCount(@Param("keyword") String keyword, @Param("clubIds") List<Integer> clubIds);
 
     @Select("SELECT a.*, u.real_name as publisher_name " +
             "FROM announcements a " +

@@ -31,8 +31,7 @@
           <div class="form-group">
             <label>发布范围 *</label>
             <select v-model="formData.targetType" required>
-              <option value="all">全校</option>
-              <option value="club">社团</option>
+              <option v-for="option in targetOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
             </select>
           </div>
         </div>
@@ -72,7 +71,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch } from 'vue'
+import { computed, ref, reactive, watch } from 'vue'
 
 const props = defineProps({
   isEdit: {
@@ -88,6 +87,11 @@ const props = defineProps({
 const emit = defineEmits(['close', 'submit'])
 
 const loading = ref(false)
+const currentRole = computed(() => JSON.parse(sessionStorage.getItem('user') || '{}').role || '')
+const targetOptions = computed(() => currentRole.value === 'admin'
+  ? [{ value: 'all', label: '全校' }]
+  : [{ value: 'club', label: '本社团' }]
+)
 
 // 表单数据
 const formData = reactive({
@@ -114,6 +118,9 @@ watch(() => props.initialData, (newVal) => {
 }, { immediate: true })
 
 const handleSubmit = async () => {
+  if (!targetOptions.value.some(option => option.value === formData.targetType)) {
+    formData.targetType = targetOptions.value[0].value
+  }
   if (!formData.title || !formData.type || !formData.targetType || !formData.content) {
     alert('请填写所有必填项')
     return

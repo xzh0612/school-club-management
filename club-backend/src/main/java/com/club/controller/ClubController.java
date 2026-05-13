@@ -4,6 +4,7 @@ import com.club.common.*;
 import com.club.entity.*;
 import com.club.service.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -30,15 +31,32 @@ public class ClubController {
         }
         if (!securityContext.isAdmin(request)) {
             Integer userId = securityContext.currentUserId(request);
-            Integer clubId = securityContext.currentUser(request).getClubId();
-            return Result.ok(PageResult.of(clubService.listManageable(userId, clubId, page, size), clubService.countManageable(userId, clubId), page, size));
+            Integer clubId = securityContext.managedClubId(request);
+            boolean includeAdvisor = securityContext.isTeacher(request);
+            return Result.ok(PageResult.of(clubService.listManageable(userId, clubId, includeAdvisor, page, size), clubService.countManageable(userId, clubId, includeAdvisor), page, size));
         }
         return Result.ok(PageResult.of(clubService.list(status, keyword, page, size), clubService.count(status, keyword), page, size));
+    }
+
+    @GetMapping("/clubs/stats")
+    public Result<java.util.Map<String, Integer>> stats(HttpServletRequest request) {
+        if (securityContext.isStudent(request)) {
+            throw new RuntimeException("学生无权查看社团管理统计");
+        }
+        if (securityContext.isAdmin(request)) {
+            return Result.ok(clubService.stats(null, null, false, true));
+        }
+        Integer userId = securityContext.currentUserId(request);
+        Integer clubId = securityContext.managedClubId(request);
+        return Result.ok(clubService.stats(userId, clubId, securityContext.isTeacher(request), false));
     }
 
     @GetMapping("/clubs/{id}")
     public Result<Club> detail(@PathVariable Long id, HttpServletRequest request) {
         Club club = clubService.getById(id);
+        if (club == null) {
+            throw new RuntimeException("社团不存在");
+        }
         if (securityContext.isStudent(request) && !"approved".equals(club.getStatus())) {
             throw new RuntimeException("社团尚未通过审批");
         }
@@ -49,6 +67,7 @@ public class ClubController {
     }
 
     @PostMapping("/clubs")
+    @Transactional
     public Result<Club> create(@RequestBody Club club, HttpServletRequest request) {
         Integer applicantId = securityContext.currentUserId(request);
         if (securityContext.isAdmin(request)) {
@@ -56,6 +75,9 @@ public class ClubController {
                 club.setStatus("approved");
             }
         } else {
+            if (!securityContext.isStudent(request)) {
+                throw new RuntimeException("只有学生可以提交社团成立申请");
+            }
             club.setFounderId(applicantId);
             club.setStatus("pending");
         }
@@ -76,7 +98,15 @@ public class ClubController {
 
     @PutMapping("/clubs/{id}")
     public Result<Club> update(@PathVariable Integer id, @RequestBody Club club, HttpServletRequest request) {
-        securityContext.requireClubManager(request, clubService.getById(id.longValue()));
+        Club existing = clubService.getById(id.longValue());
+        if (existing == null) {
+            throw new RuntimeException("社团不存在");
+        }
+        if (!securityContext.isAdmin(request)) {
+            securityContext.requireClubLeader(request, existing);
+            club.setAdvisorId(existing.getAdvisorId());
+            club.setStatus(existing.getStatus());
+        }
         club.setClubId(id);
         return Result.ok(clubService.update(club));
     }
@@ -99,8 +129,9 @@ public class ClubController {
         }
         if (!securityContext.isAdmin(request)) {
             Integer userId = securityContext.currentUserId(request);
-            Integer clubId = securityContext.currentUser(request).getClubId();
-            return Result.ok(PageResult.of(clubService.searchManageable(keyword, userId, clubId, page, size), clubService.searchManageableCount(keyword, userId, clubId), page, size));
+            Integer clubId = securityContext.managedClubId(request);
+            boolean includeAdvisor = securityContext.isTeacher(request);
+            return Result.ok(PageResult.of(clubService.searchManageable(keyword, userId, clubId, includeAdvisor, page, size), clubService.searchManageableCount(keyword, userId, clubId, includeAdvisor), page, size));
         }
         return Result.ok(PageResult.of(clubService.search(keyword, page, size), clubService.searchCount(keyword), page, size));
     }
@@ -112,13 +143,22 @@ public class ClubController {
             @RequestParam(defaultValue = "10") int size,
             HttpServletRequest request) {
         Club club = clubService.getById(id.longValue());
+        if (club == null) {
+            throw new RuntimeException("社团不存在");
+        }
         if (securityContext.isStudent(request) && !"approved".equals(club.getStatus())) {
             throw new RuntimeException("社团尚未通过审批");
         }
         if (!securityContext.isStudent(request)) {
             securityContext.requireClubManager(request, club);
         }
-        return Result.ok(PageResult.of(clubMemberService.listByClub(id, page, size), clubMemberService.countByClub(id), page, size));
+        java.util.List<ClubMember> members = clubMemberService.listByClub(id, page, size);
+        if (securityContext.isStudent(request)) {
+            members = members.stream()
+                    .map(this::maskPublicMember)
+                    .toList();
+        }
+        return Result.ok(PageResult.of(members, clubMemberService.countByClub(id), page, size));
     }
 
     @PostMapping("/clubs/{id}/members")
@@ -126,10 +166,7 @@ public class ClubController {
             @PathVariable Integer id,
             @RequestBody java.util.Map<String, Object> body,
             HttpServletRequest request) {
-        securityContext.requireClubLeader(request, clubService.getById(id.longValue()));
-        Integer userId = ((Number) body.get("userId")).intValue();
-        String role = (String) body.get("role");
-        return Result.ok(clubMemberService.addMember(id, userId, role));
+        throw new RuntimeException("成员加入必须通过入社申请审核，不能直接添加成员");
     }
 
     @PutMapping("/clubs/{id}/members/{userId}")
@@ -161,6 +198,9 @@ public class ClubController {
             @RequestParam(defaultValue = "10") int size,
             HttpServletRequest request) {
         Club club = clubService.getById(id.longValue());
+        if (club == null) {
+            throw new RuntimeException("社团不存在");
+        }
         if (securityContext.isStudent(request) && !"approved".equals(club.getStatus())) {
             throw new RuntimeException("社团尚未通过审批");
         }
@@ -169,5 +209,17 @@ public class ClubController {
         }
         String status = securityContext.isStudent(request) ? "approved" : null;
         return Result.ok(PageResult.of(clubService.getActivities(id.longValue(), status, page, size), clubService.getActivityCount(id.longValue(), status), page, size));
+    }
+
+    private ClubMember maskPublicMember(ClubMember member) {
+        ClubMember masked = new ClubMember();
+        masked.setId(member.getId());
+        masked.setClubId(member.getClubId());
+        masked.setRole(member.getRole());
+        masked.setStatus(member.getStatus());
+        masked.setJoinTime(member.getJoinTime());
+        masked.setClubName(member.getClubName());
+        masked.setUserName(member.getUserName());
+        return masked;
     }
 }

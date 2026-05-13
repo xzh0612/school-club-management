@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 public class AnnouncementController {
 
     private final AnnouncementService announcementService;
+    private final ClubMemberService clubMemberService;
     private final SecurityContext securityContext;
 
     @GetMapping("/announcements")
@@ -23,15 +24,18 @@ public class AnnouncementController {
             @RequestParam(required = false) Boolean isTop,
             @RequestParam(required = false) String status,
             HttpServletRequest request) {
-        if (securityContext.isStudent(request)) {
-            Integer clubId = securityContext.currentUser(request).getClubId();
-            return Result.ok(PageResult.of(announcementService.listVisible(clubId, targetType, isTop, page, size), announcementService.countVisible(clubId, targetType, isTop), page, size));
+        if (securityContext.isAdmin(request)) {
+            return Result.ok(PageResult.of(announcementService.list(status, targetType, isTop, page, size), announcementService.count(status, targetType, isTop), page, size));
+        }
+        if (securityContext.isStudent(request) || securityContext.isTeacher(request)) {
+            java.util.List<Integer> clubIds = visibleClubIds(request);
+            return Result.ok(PageResult.of(announcementService.listVisible(clubIds, targetType, isTop, page, size), announcementService.countVisible(clubIds, targetType, isTop), page, size));
         }
         if (securityContext.isLeader(request)) {
             Integer clubId = requireLeaderClubId(request);
             return Result.ok(PageResult.of(announcementService.listManageable(clubId, status, isTop, page, size), announcementService.countManageable(clubId, status, isTop), page, size));
         }
-        return Result.ok(PageResult.of(announcementService.list(status, targetType, isTop, page, size), announcementService.count(status, targetType, isTop), page, size));
+        throw new RuntimeException("无权查看公告列表");
     }
 
     @GetMapping("/announcements/{id}")
@@ -91,15 +95,18 @@ public class AnnouncementController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             HttpServletRequest request) {
-        if (securityContext.isStudent(request)) {
-            Integer clubId = securityContext.currentUser(request).getClubId();
-            return Result.ok(PageResult.of(announcementService.searchVisible(keyword, clubId, page, size), announcementService.searchVisibleCount(keyword, clubId), page, size));
+        if (securityContext.isAdmin(request)) {
+            return Result.ok(PageResult.of(announcementService.search(keyword, null, page, size), announcementService.searchCount(keyword, null), page, size));
+        }
+        if (securityContext.isStudent(request) || securityContext.isTeacher(request)) {
+            java.util.List<Integer> clubIds = visibleClubIds(request);
+            return Result.ok(PageResult.of(announcementService.searchVisible(keyword, clubIds, page, size), announcementService.searchVisibleCount(keyword, clubIds), page, size));
         }
         if (securityContext.isLeader(request)) {
             Integer clubId = requireLeaderClubId(request);
             return Result.ok(PageResult.of(announcementService.searchManageable(keyword, clubId, page, size), announcementService.searchManageableCount(keyword, clubId), page, size));
         }
-        return Result.ok(PageResult.of(announcementService.search(keyword, null, page, size), announcementService.searchCount(keyword, null), page, size));
+        throw new RuntimeException("无权搜索公告");
     }
 
     // 置顶公告
@@ -133,11 +140,7 @@ public class AnnouncementController {
     }
 
     private Integer requireLeaderClubId(HttpServletRequest request) {
-        Integer clubId = securityContext.currentUser(request).getClubId();
-        if (clubId == null) {
-            throw new RuntimeException("社团负责人未绑定可管理社团");
-        }
-        return clubId;
+        return securityContext.requireLeaderClubId(request);
     }
 
     private void requireAnnouncementOwner(HttpServletRequest request, Announcement announcement) {
@@ -154,7 +157,7 @@ public class AnnouncementController {
     }
 
     private void requireAnnouncementReadable(HttpServletRequest request, Announcement announcement) {
-        if (securityContext.isAdmin(request) || securityContext.isTeacher(request)) {
+        if (securityContext.isAdmin(request)) {
             return;
         }
         if (securityContext.isLeader(request)) {
@@ -163,12 +166,16 @@ public class AnnouncementController {
                 return;
             }
         }
-        Integer clubId = securityContext.currentUser(request).getClubId();
+        java.util.List<Integer> clubIds = visibleClubIds(request);
         boolean visibleToStudent = "published".equals(announcement.getStatus())
                 && ("all".equals(announcement.getTargetType())
-                    || ("club".equals(announcement.getTargetType()) && clubId != null && clubId.equals(announcement.getTargetId())));
+                    || ("club".equals(announcement.getTargetType()) && clubIds.contains(announcement.getTargetId())));
         if (!visibleToStudent) {
             throw new RuntimeException("公告不可访问");
         }
+    }
+
+    private java.util.List<Integer> visibleClubIds(HttpServletRequest request) {
+        return clubMemberService.listActiveClubIdsByUser(securityContext.currentUserId(request));
     }
 }

@@ -5,6 +5,7 @@ import com.club.entity.*;
 import com.club.service.*;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -29,8 +30,9 @@ public class ActivityController {
         }
         if (!securityContext.isAdmin(request)) {
             Integer userId = securityContext.currentUserId(request);
-            Integer managedClubId = securityContext.currentUser(request).getClubId();
-            return Result.ok(PageResult.of(activityService.listManageable(userId, managedClubId, page, size), activityService.countManageable(userId, managedClubId), page, size));
+            Integer managedClubId = securityContext.managedClubId(request);
+            boolean includeAdvisor = securityContext.isTeacher(request);
+            return Result.ok(PageResult.of(activityService.listManageable(userId, managedClubId, includeAdvisor, page, size), activityService.countManageable(userId, managedClubId, includeAdvisor), page, size));
         }
         return Result.ok(PageResult.of(activityService.list(status, clubId, page, size), activityService.count(status, clubId), page, size));
     }
@@ -51,6 +53,7 @@ public class ActivityController {
     }
 
     @PostMapping("/activities")
+    @Transactional
     public Result<Activity> create(@RequestBody Activity activity, HttpServletRequest request) {
         if (activity.getClubId() == null) {
             throw new RuntimeException("活动必须指定所属社团");
@@ -74,6 +77,7 @@ public class ActivityController {
     }
 
     @PutMapping("/activities/{id}")
+    @Transactional
     public Result<Activity> update(@PathVariable Integer id, @RequestBody Activity activity, HttpServletRequest request) {
         Activity existing = activityService.getById(id);
         if (existing == null) {
@@ -120,8 +124,9 @@ public class ActivityController {
         }
         if (!securityContext.isAdmin(request)) {
             Integer userId = securityContext.currentUserId(request);
-            Integer clubId = securityContext.currentUser(request).getClubId();
-            return Result.ok(PageResult.of(activityService.searchManageable(keyword, userId, clubId, page, size), activityService.searchManageableCount(keyword, userId, clubId), page, size));
+            Integer clubId = securityContext.managedClubId(request);
+            boolean includeAdvisor = securityContext.isTeacher(request);
+            return Result.ok(PageResult.of(activityService.searchManageable(keyword, userId, clubId, includeAdvisor, page, size), activityService.searchManageableCount(keyword, userId, clubId, includeAdvisor), page, size));
         }
         return Result.ok(PageResult.of(activityService.search(keyword, page, size), activityService.searchCount(keyword), page, size));
     }
@@ -131,22 +136,24 @@ public class ActivityController {
         if (!securityContext.isStudent(request)) {
             throw new RuntimeException("只有学生可以报名活动");
         }
-        Long userId = (Long) request.getAttribute("userId");
-        activityService.signup(id, userId.intValue());
+        activityService.signup(id, securityContext.currentUserId(request));
         return Result.ok();
     }
 
     @DeleteMapping("/activities/{id}/signup")
     public Result<Void> cancelSignup(@PathVariable Integer id, @RequestParam(required = false) Integer userId, HttpServletRequest request) {
-        Long currentUserId = (Long) request.getAttribute("userId");
+        Integer currentUserId = securityContext.currentUserId(request);
         if (userId == null && !securityContext.isStudent(request)) {
             throw new RuntimeException("只有学生可以取消自己的报名");
         }
         if (userId != null && !securityContext.isAdmin(request)) {
             Activity activity = activityService.getById(id);
+            if (activity == null) {
+                throw new RuntimeException("活动不存在");
+            }
             securityContext.requireClubManager(request, clubService.getById(activity.getClubId().longValue()));
         }
-        activityService.cancelSignup(id, userId != null ? userId : currentUserId.intValue());
+        activityService.cancelSignup(id, userId != null ? userId : currentUserId);
         return Result.ok();
     }
 

@@ -1,11 +1,14 @@
 package com.club.controller;
 
 import com.club.common.Result;
+import com.club.common.SecurityContext;
 import com.club.entity.StatisticsData;
 import com.club.entity.GrowthData;
 import com.club.entity.ClubRanking;
 import com.club.service.StatisticsService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,27 +19,47 @@ import java.util.List;
 public class StatisticsController {
     
     private final StatisticsService statisticsService;
+    private final SecurityContext securityContext;
     
     @GetMapping("/overview")
-    public Result<StatisticsData> getOverviewStats() {
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
+    public Result<StatisticsData> getOverviewStats(HttpServletRequest request) {
+        securityContext.requireAdminOrTeacher(request);
+        if (securityContext.isTeacher(request)) {
+            return Result.ok(statisticsService.getOverviewStatsForAdvisor(securityContext.currentUserId(request)));
+        }
         return Result.ok(statisticsService.getOverviewStats());
     }
     
     @GetMapping("/growth-trend")
-    public Result<List<GrowthData>> getGrowthTrend() {
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
+    public Result<List<GrowthData>> getGrowthTrend(HttpServletRequest request) {
+        securityContext.requireAdminOrTeacher(request);
+        if (securityContext.isTeacher(request)) {
+            return Result.ok(statisticsService.getClubGrowthTrendForAdvisor(securityContext.currentUserId(request)));
+        }
         return Result.ok(statisticsService.getClubGrowthTrend());
     }
     
     @GetMapping("/rankings")
-    public Result<List<ClubRanking>> getClubRankings() {
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
+    public Result<List<ClubRanking>> getClubRankings(HttpServletRequest request) {
+        securityContext.requireAdminOrTeacher(request);
+        if (securityContext.isTeacher(request)) {
+            return Result.ok(statisticsService.getClubRankingsForAdvisor(securityContext.currentUserId(request)));
+        }
         return Result.ok(statisticsService.getClubRankings());
     }
     
     @GetMapping("/all")
-    public Result<?> getAllStatistics() {
-        StatisticsData overview = statisticsService.getOverviewStats();
-        List<GrowthData> growthTrend = statisticsService.getClubGrowthTrend();
-        List<ClubRanking> rankings = statisticsService.getClubRankings();
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
+    public Result<?> getAllStatistics(HttpServletRequest request) {
+        securityContext.requireAdminOrTeacher(request);
+        boolean advisorScoped = securityContext.isTeacher(request);
+        Integer advisorId = advisorScoped ? securityContext.currentUserId(request) : null;
+        StatisticsData overview = advisorScoped ? statisticsService.getOverviewStatsForAdvisor(advisorId) : statisticsService.getOverviewStats();
+        List<GrowthData> growthTrend = advisorScoped ? statisticsService.getClubGrowthTrendForAdvisor(advisorId) : statisticsService.getClubGrowthTrend();
+        List<ClubRanking> rankings = advisorScoped ? statisticsService.getClubRankingsForAdvisor(advisorId) : statisticsService.getClubRankings();
         
         return Result.ok(new Object() {
             public StatisticsData stats = overview;

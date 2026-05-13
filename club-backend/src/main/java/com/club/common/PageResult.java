@@ -14,8 +14,8 @@ public class PageResult<T> {
         PageResult<T> r = new PageResult<>();
         r.setRecords(records);
         r.setTotal(total);
-        r.setPage(page);
-        r.setSize(size);
+        r.setPage(PageQuery.normalizePage(page));
+        r.setSize(PageQuery.normalizeSize(size));
         return r;
     }
 }

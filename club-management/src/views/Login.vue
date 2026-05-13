@@ -135,8 +135,8 @@ async function handleLogin() {
     }
     
     // 保存 token 和用户信息
-    localStorage.setItem('token', token)
-    localStorage.setItem('user', JSON.stringify({
+    sessionStorage.setItem('token', token)
+    sessionStorage.setItem('user', JSON.stringify({
       role: currentRole,
       name: userData.name || userData.realName,
       avatar: (userData.name || userData.realName)?.charAt(0) || 'U',

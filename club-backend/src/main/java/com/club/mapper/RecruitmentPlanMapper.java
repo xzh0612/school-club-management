@@ -33,6 +33,11 @@ public interface RecruitmentPlanMapper {
             "FROM recruitments WHERE recruitment_id = #{recruitmentId}")
     RecruitmentPlan findById(Integer recruitmentId);
 
+    @Select("SELECT recruitment_id, club_id, title, quota, requirements, description, status, " +
+            "DATE(start_time) AS start_date, DATE(end_time) AS end_date, create_time, update_time " +
+            "FROM recruitments WHERE recruitment_id = #{recruitmentId} FOR UPDATE")
+    RecruitmentPlan findByIdForUpdate(Integer recruitmentId);
+
     @Insert("INSERT INTO recruitments(club_id, title, quota, requirements, description, status, start_time, end_time) VALUES(#{clubId}, #{title}, #{quota}, #{requirements}, #{description}, #{status}, #{startDate}, #{endDate})")
     @Options(useGeneratedKeys = true, keyProperty = "recruitmentId")
     int insert(RecruitmentPlan plan);
@@ -40,6 +45,6 @@ public interface RecruitmentPlanMapper {
     @Update("UPDATE recruitments SET club_id = #{clubId}, title = #{title}, quota = #{quota}, requirements = #{requirements}, description = #{description}, status = #{status}, start_time = #{startDate}, end_time = #{endDate} WHERE recruitment_id = #{recruitmentId}")
     int update(RecruitmentPlan plan);
 
-    @Delete("DELETE FROM recruitments WHERE recruitment_id = #{recruitmentId}")
+    @Update("UPDATE recruitments SET status = 'archived' WHERE recruitment_id = #{recruitmentId}")
     int deleteById(Integer recruitmentId);
 }

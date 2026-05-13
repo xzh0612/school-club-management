@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final UserService userService;
+    private final SecurityContext securityContext;
 
     @PostMapping("/login")
     public Result<LoginVO> login(@RequestBody LoginDTO dto) {
@@ -25,8 +26,13 @@ public class AuthController {
 
     @GetMapping("/user/info")
     public Result<User> info(HttpServletRequest request) {
-        Long userId = (Long) request.getAttribute("userId");
-        return Result.ok(userService.getById(userId.intValue()));
+        return Result.ok(securityContext.currentUser(request));
+    }
+
+    @PostMapping("/logout")
+    public Result<Void> logout(HttpServletRequest request) {
+        userService.invalidateTokens(securityContext.currentUserId(request));
+        return Result.ok();
     }
 
 }

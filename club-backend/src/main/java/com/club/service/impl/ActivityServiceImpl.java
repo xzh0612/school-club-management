@@ -1,10 +1,13 @@
 package com.club.service.impl;
 
+import com.club.common.PageQuery;
 import com.club.entity.*;
 import com.club.mapper.*;
 import com.club.service.ActivityService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -17,23 +20,25 @@ public class ActivityServiceImpl implements ActivityService {
 
     @Override
     public List<Activity> list(String status, Long clubId, int page, int size) {
-        int offset = (page - 1) * size;
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
         if (status != null && !status.isEmpty() && clubId != null) {
-            return activityMapper.findByClubIdAndStatus(clubId.intValue(), status, offset, size);
+            return activityMapper.findByClubIdAndStatus(clubId.intValue(), status, offset, pageSize);
         }
         if (status != null && !status.isEmpty()) {
-            return activityMapper.findByStatus(status, offset, size);
+            return activityMapper.findByStatus(status, offset, pageSize);
         }
         if (clubId != null) {
-            return activityMapper.findByClubId(clubId.intValue(), offset, size);
+            return activityMapper.findByClubId(clubId.intValue(), offset, pageSize);
         }
-        return activityMapper.findAll(offset, size);
+        return activityMapper.findAll(offset, pageSize);
     }
 
     @Override
-    public List<Activity> listManageable(Integer userId, Integer clubId, int page, int size) {
-        int offset = (page - 1) * size;
-        return activityMapper.findManageable(userId, clubId, offset, size);
+    public List<Activity> listManageable(Integer userId, Integer clubId, boolean includeAdvisor, int page, int size) {
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
+        return activityMapper.findManageable(userId, clubId, includeAdvisor, offset, pageSize);
     }
 
     @Override
@@ -51,8 +56,8 @@ public class ActivityServiceImpl implements ActivityService {
     }
 
     @Override
-    public int countManageable(Integer userId, Integer clubId) {
-        return activityMapper.countManageable(userId, clubId);
+    public int countManageable(Integer userId, Integer clubId, boolean includeAdvisor) {
+        return activityMapper.countManageable(userId, clubId, includeAdvisor);
     }
 
     @Override
@@ -67,12 +72,14 @@ public class ActivityServiceImpl implements ActivityService {
 
     @Override
     public Activity create(Activity activity) {
+        validate(activity);
         activityMapper.insert(activity);
         return activity;
     }
 
     @Override
     public Activity update(Activity activity) {
+        validate(activity);
         activityMapper.update(activity);
         return activity;
     }
@@ -84,8 +91,9 @@ public class ActivityServiceImpl implements ActivityService {
 
     @Override
     public List<Activity> search(String keyword, int page, int size) {
-        int offset = (page - 1) * size;
-        return activityMapper.search(keyword, offset, size);
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
+        return activityMapper.search(keyword, offset, pageSize);
     }
 
     @Override
@@ -95,8 +103,9 @@ public class ActivityServiceImpl implements ActivityService {
 
     @Override
     public List<Activity> searchByStatus(String keyword, String status, int page, int size) {
-        int offset = (page - 1) * size;
-        return activityMapper.searchByStatus(keyword, status, offset, size);
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
+        return activityMapper.searchByStatus(keyword, status, offset, pageSize);
     }
 
     @Override
@@ -105,19 +114,21 @@ public class ActivityServiceImpl implements ActivityService {
     }
 
     @Override
-    public List<Activity> searchManageable(String keyword, Integer userId, Integer clubId, int page, int size) {
-        int offset = (page - 1) * size;
-        return activityMapper.searchManageable(keyword, userId, clubId, offset, size);
+    public List<Activity> searchManageable(String keyword, Integer userId, Integer clubId, boolean includeAdvisor, int page, int size) {
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
+        return activityMapper.searchManageable(keyword, userId, clubId, includeAdvisor, offset, pageSize);
     }
 
     @Override
-    public int searchManageableCount(String keyword, Integer userId, Integer clubId) {
-        return activityMapper.searchManageableCount(keyword, userId, clubId);
+    public int searchManageableCount(String keyword, Integer userId, Integer clubId, boolean includeAdvisor) {
+        return activityMapper.searchManageableCount(keyword, userId, clubId, includeAdvisor);
     }
 
     @Override
+    @Transactional
     public void signup(Integer activityId, Integer userId) {
-        Activity activity = activityMapper.findById(activityId);
+        Activity activity = activityMapper.findByIdForUpdate(activityId);
         if (activity == null) {
             throw new RuntimeException("活动不存在");
         }
@@ -138,7 +149,13 @@ public class ActivityServiceImpl implements ActivityService {
         ActivitySignup signup = new ActivitySignup();
         signup.setActivityId(activityId);
         signup.setUserId(userId);
-        activitySignupMapper.insert(signup);
+        try {
+            activitySignupMapper.insert(signup);
+        } catch (DuplicateKeyException e) {
+            if (activitySignupMapper.restoreCancelled(activityId, userId) == 0) {
+                throw new RuntimeException("您已报名该活动");
+            }
+        }
     }
 
     @Override
@@ -148,12 +165,44 @@ public class ActivityServiceImpl implements ActivityService {
 
     @Override
     public List<ActivitySignup> getSignups(Integer activityId, int page, int size) {
-        int offset = (page - 1) * size;
-        return activitySignupMapper.findByActivityId(activityId, offset, size);
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
+        return activitySignupMapper.findByActivityId(activityId, offset, pageSize);
     }
 
     @Override
     public int getSignupCount(Integer activityId) {
         return activitySignupMapper.countByActivityId(activityId);
+    }
+
+    private void validate(Activity activity) {
+        if (activity.getTitle() == null || activity.getTitle().isBlank()) {
+            throw new RuntimeException("活动标题不能为空");
+        }
+        activity.setTitle(activity.getTitle().trim());
+        if (activity.getTitle().length() > 100) {
+            throw new RuntimeException("活动标题不能超过100字");
+        }
+        if (activity.getContent() != null && activity.getContent().length() > 5000) {
+            throw new RuntimeException("活动内容不能超过5000字");
+        }
+        if (activity.getLocation() != null && activity.getLocation().length() > 200) {
+            throw new RuntimeException("活动地点不能超过200字");
+        }
+        if (activity.getContact() != null && activity.getContact().length() > 100) {
+            throw new RuntimeException("联系方式不能超过100字");
+        }
+        if (activity.getMaxParticipants() == null || activity.getMaxParticipants() <= 0) {
+            throw new RuntimeException("活动人数上限必须大于0");
+        }
+        if (activity.getStartTime() == null || activity.getEndTime() == null) {
+            throw new RuntimeException("活动开始和结束时间不能为空");
+        }
+        if (activity.getEndTime().isBefore(activity.getStartTime())) {
+            throw new RuntimeException("活动结束时间不能早于开始时间");
+        }
+        if (activity.getRegistrationDeadline() != null && activity.getRegistrationDeadline().isAfter(activity.getStartTime())) {
+            throw new RuntimeException("报名截止时间不能晚于活动开始时间");
+        }
     }
 }

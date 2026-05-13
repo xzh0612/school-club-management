@@ -29,10 +29,7 @@ public class RecruitmentPlanController {
         if (!securityContext.isLeader(request)) {
             throw new RuntimeException("只有社团负责人可以查看招新计划");
         }
-        Integer effectiveClubId = clubId != null ? clubId : securityContext.currentUser(request).getClubId();
-        if (effectiveClubId == null) {
-            throw new RuntimeException("当前负责人未绑定社团");
-        }
+        Integer effectiveClubId = clubId != null ? clubId : securityContext.requireLeaderClubId(request);
         securityContext.requireClubLeader(request, clubService.getById(effectiveClubId.longValue()));
         return Result.ok(PageResult.of(
                 recruitmentPlanService.list(effectiveClubId, page, size),
@@ -43,6 +40,9 @@ public class RecruitmentPlanController {
 
     @PostMapping
     public Result<RecruitmentPlan> create(@RequestBody RecruitmentPlan plan, HttpServletRequest request) {
+        if (plan.getClubId() == null) {
+            throw new RuntimeException("招新计划必须指定所属社团");
+        }
         Club club = clubService.getById(plan.getClubId().longValue());
         securityContext.requireClubLeader(request, club);
         return Result.ok(recruitmentPlanService.create(plan));
@@ -56,9 +56,7 @@ public class RecruitmentPlanController {
         }
         securityContext.requireClubLeader(request, clubService.getById(existing.getClubId().longValue()));
         plan.setRecruitmentId(id);
-        if (plan.getClubId() == null) {
-            plan.setClubId(existing.getClubId());
-        }
+        plan.setClubId(existing.getClubId());
         return Result.ok(recruitmentPlanService.update(plan));
     }
 

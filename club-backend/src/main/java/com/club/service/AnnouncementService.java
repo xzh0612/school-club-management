@@ -6,8 +6,8 @@ import java.util.List;
 public interface AnnouncementService {
     List<Announcement> list(String status, String targetType, Boolean isTop, int page, int size);
     int count(String status, String targetType, Boolean isTop);
-    List<Announcement> listVisible(Integer clubId, String targetType, Boolean isTop, int page, int size);
-    int countVisible(Integer clubId, String targetType, Boolean isTop);
+    List<Announcement> listVisible(List<Integer> clubIds, String targetType, Boolean isTop, int page, int size);
+    int countVisible(List<Integer> clubIds, String targetType, Boolean isTop);
     List<Announcement> listManageable(Integer clubId, String status, Boolean isTop, int page, int size);
     int countManageable(Integer clubId, String status, Boolean isTop);
     Announcement getById(Integer id);
@@ -16,8 +16,8 @@ public interface AnnouncementService {
     void delete(Integer id);
     List<Announcement> search(String keyword, String status, int page, int size);
     int searchCount(String keyword, String status);
-    List<Announcement> searchVisible(String keyword, Integer clubId, int page, int size);
-    int searchVisibleCount(String keyword, Integer clubId);
+    List<Announcement> searchVisible(String keyword, List<Integer> clubIds, int page, int size);
+    int searchVisibleCount(String keyword, List<Integer> clubIds);
     List<Announcement> searchManageable(String keyword, Integer clubId, int page, int size);
     int searchManageableCount(String keyword, Integer clubId);
     void setTop(Integer id, Boolean isTop);

@@ -159,16 +159,6 @@ SELECT 'activity_application', @activity_pending_id, @leader_cs_id, NULL, 'pendi
 WHERE NOT EXISTS (SELECT 1 FROM approvals WHERE type = 'activity_application' AND related_id = @activity_pending_id AND applicant_id = @leader_cs_id);
 UPDATE approvals SET approver_id = NULL, status = 'pending', comments = '申请举办算法讲座', current_step = 1, total_steps = 2, approval_time = NULL WHERE type = 'activity_application' AND related_id = @activity_pending_id AND applicant_id = @leader_cs_id;
 
-INSERT INTO approvals(type, related_id, applicant_id, approver_id, status, comments, current_step, total_steps, approval_time)
-SELECT 'recruitment_application', @club_cs_id, @student_empty_id, NULL, 'pending', '我还没有加入社团，希望学习编程协作', 1, 1, NULL
-WHERE NOT EXISTS (SELECT 1 FROM approvals WHERE type = 'recruitment_application' AND related_id = @club_cs_id AND applicant_id = @student_empty_id);
-UPDATE approvals SET approver_id = NULL, status = 'pending', comments = '我还没有加入社团，希望学习编程协作', current_step = 1, total_steps = 1, approval_time = NULL WHERE type = 'recruitment_application' AND related_id = @club_cs_id AND applicant_id = @student_empty_id;
-
-INSERT INTO approvals(type, related_id, applicant_id, approver_id, status, comments, current_step, total_steps, approval_time)
-SELECT 'recruitment_application', @club_photo_id, @student2_id, @leader_photo_id, 'approved', '摄影社申请通过', 1, 1, NOW()
-WHERE NOT EXISTS (SELECT 1 FROM approvals WHERE type = 'recruitment_application' AND related_id = @club_photo_id AND applicant_id = @student2_id);
-UPDATE approvals SET approver_id = @leader_photo_id, status = 'approved', comments = '摄影社申请通过', current_step = 1, total_steps = 1, approval_time = NOW() WHERE type = 'recruitment_application' AND related_id = @club_photo_id AND applicant_id = @student2_id;
-
 INSERT INTO announcements(title, content, publisher_id, target_type, target_id, status, publish_time, is_top, view_count)
 SELECT '全校社团开放日通知', '本周五下午在学生活动中心举行社团开放日，各社团负责人请按时布展。', @admin_id, 'all', NULL, 'published', NOW(), 1, 12
 WHERE NOT EXISTS (SELECT 1 FROM announcements WHERE title = '全校社团开放日通知');

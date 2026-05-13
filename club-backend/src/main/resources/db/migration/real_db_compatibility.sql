@@ -42,7 +42,7 @@ CALL add_column_if_missing('activities', 'contact', "`contact` VARCHAR(100) DEFA
 CALL add_column_if_missing('activity_signups', 'checkin_time', "`checkin_time` DATETIME DEFAULT NULL COMMENT '签到时间' AFTER `status`");
 
 ALTER TABLE approvals
-    MODIFY COLUMN type ENUM('club_creation','activity_application','recruitment_application') NOT NULL COMMENT '审批类型：社团成立、活动申请、入社申请';
+    MODIFY COLUMN type ENUM('club_creation','activity_application') NOT NULL COMMENT '审批类型：社团成立、活动申请';
 CALL add_column_if_missing('approvals', 'current_step', "`current_step` INT NOT NULL DEFAULT 1 COMMENT '当前审批步骤' AFTER `comments`");
 CALL add_column_if_missing('approvals', 'total_steps', "`total_steps` INT NOT NULL DEFAULT 1 COMMENT '总审批步骤' AFTER `current_step`");
 CALL add_column_if_missing('approvals', 'update_time', "`update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间' AFTER `approval_time`");

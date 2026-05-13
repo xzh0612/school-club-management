@@ -31,7 +31,7 @@ const loading = ref(false)
 const clubs = ref([])
 const activities = ref([])
 
-const currentUserId = () => JSON.parse(localStorage.getItem('user') || '{}').id
+const currentUserId = () => JSON.parse(sessionStorage.getItem('user') || '{}').id
 const formatDate = (value) => value ? new Date(value).toLocaleString('zh-CN') : ''
 const getClubIcon = (name = '') => {
   if (name.includes('计算机')) return '💻'

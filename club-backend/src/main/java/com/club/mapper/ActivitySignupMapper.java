@@ -8,15 +8,18 @@ import java.util.List;
 @Mapper
 public interface ActivitySignupMapper {
 
-    @Select("SELECT COUNT(*) FROM activity_signups WHERE activity_id = #{activityId} AND user_id = #{userId}")
+    @Select("SELECT COUNT(*) FROM activity_signups WHERE activity_id = #{activityId} AND user_id = #{userId} AND status <> 'cancelled'")
     int countByActivityAndUser(@Param("activityId") Integer activityId, @Param("userId") Integer userId);
 
     @Insert("INSERT INTO activity_signups(activity_id, user_id, status) VALUES(#{activityId}, #{userId}, 'pending')")
     @Options(useGeneratedKeys = true, keyProperty = "signupId")
     int insert(ActivitySignup signup);
 
-    @Delete("DELETE FROM activity_signups WHERE activity_id = #{activityId} AND user_id = #{userId}")
+    @Update("UPDATE activity_signups SET status = 'cancelled' WHERE activity_id = #{activityId} AND user_id = #{userId}")
     int deleteByActivityAndUser(@Param("activityId") Integer activityId, @Param("userId") Integer userId);
+
+    @Update("UPDATE activity_signups SET status = 'pending', signup_time = NOW(), checkin_time = NULL WHERE activity_id = #{activityId} AND user_id = #{userId} AND status = 'cancelled'")
+    int restoreCancelled(@Param("activityId") Integer activityId, @Param("userId") Integer userId);
 
     @Select("SELECT s.*, a.title AS activity_title, u.real_name AS user_name, u.student_id AS user_sid " +
             "FROM activity_signups s " +

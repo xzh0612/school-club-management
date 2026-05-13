@@ -1,5 +1,6 @@
 package com.club.controller;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.club.common.PageResult;
 import com.club.common.Result;
 import com.club.common.SecurityContext;
@@ -34,10 +35,8 @@ public class ApplicationController {
         if (!securityContext.isLeader(request)) {
             throw new RuntimeException("只有社团负责人可以查看入社申请");
         }
-        Integer managedClubId = securityContext.currentUser(request).getClubId();
-        if (managedClubId == null) {
-            throw new RuntimeException("当前负责人未绑定社团");
-        }
+        Integer managedClubId = clubId != null ? clubId : securityContext.requireLeaderClubId(request);
+        securityContext.requireClubLeader(request, clubService.getById(managedClubId.longValue()));
         return Result.ok(PageResult.of(
                 applicationService.list(managedClubId, status, securityContext.currentUserId(request), false, page, size),
                 applicationService.count(managedClubId, status, securityContext.currentUserId(request), false),
@@ -63,14 +62,27 @@ public class ApplicationController {
 
     @PostMapping("/applications")
     public Result<Application> submit(
-            @RequestParam Integer clubId,
+            @RequestParam(required = false) Integer clubId,
             @RequestParam(required = false) Integer recruitmentId,
-            @RequestBody(required = false) String introduction,
+            @RequestBody(required = false) JsonNode body,
             HttpServletRequest request) {
         if (!securityContext.isStudent(request)) {
             throw new RuntimeException("只有学生可以提交入社申请");
         }
-        return Result.ok(applicationService.submit(securityContext.currentUserId(request), clubId, recruitmentId, introduction));
+        Integer effectiveClubId = body != null && body.hasNonNull("clubId") ? body.get("clubId").asInt() : clubId;
+        Integer effectiveRecruitmentId = body != null && body.hasNonNull("recruitmentId") ? body.get("recruitmentId").asInt() : recruitmentId;
+        String introduction = null;
+        if (body != null) {
+            if (body.isTextual()) {
+                introduction = body.asText();
+            } else if (body.hasNonNull("introduction")) {
+                introduction = body.get("introduction").asText();
+            }
+        }
+        if (effectiveClubId == null) {
+            throw new RuntimeException("入社申请必须指定社团");
+        }
+        return Result.ok(applicationService.submit(securityContext.currentUserId(request), effectiveClubId, effectiveRecruitmentId, introduction));
     }
 
     @PostMapping("/applications/{id}/approve")

@@ -4,8 +4,9 @@ SET NAMES utf8mb4;
 
 DELETE FROM operation_logs;
 DELETE FROM approvals;
+DELETE FROM applications;
 DELETE FROM activity_signups;
-DELETE FROM recruitment_plans;
+DELETE FROM recruitments;
 DELETE FROM activities;
 DELETE FROM club_members;
 DELETE FROM announcements;
@@ -16,7 +17,8 @@ ALTER TABLE users AUTO_INCREMENT = 1;
 ALTER TABLE clubs AUTO_INCREMENT = 1;
 ALTER TABLE club_members AUTO_INCREMENT = 1;
 ALTER TABLE activities AUTO_INCREMENT = 1;
-ALTER TABLE recruitment_plans AUTO_INCREMENT = 1;
+ALTER TABLE recruitments AUTO_INCREMENT = 1;
+ALTER TABLE applications AUTO_INCREMENT = 1;
 ALTER TABLE activity_signups AUTO_INCREMENT = 1;
 ALTER TABLE approvals AUTO_INCREMENT = 1;
 ALTER TABLE announcements AUTO_INCREMENT = 1;
@@ -56,24 +58,26 @@ INSERT INTO activities (activity_id, club_id, title, content, type, max_particip
 (5, 2, '被取消的摄影展', '场地冲突取消。', '文艺体育', 30, '2026-05-12 12:00:00', '赵雨晴', '13800000004', '2026-05-16 09:00:00', '2026-05-16 17:00:00', '艺术楼展厅', 'cancelled', '2026-05-04 10:00:00'),
 (6, 1, '待审批活动', '需要老师审核的活动。', '学术科技', 20, '2026-05-25 12:00:00', '陈思远', '13800000003', '2026-05-28 19:00:00', '2026-05-28 21:00:00', '线上会议', 'pending_approval', '2026-05-05 10:00:00');
 
-INSERT INTO recruitment_plans (recruitment_id, club_id, title, quota, requirements, description, status, start_date, end_date) VALUES
-(1, 1, '计算机协会夏季招新', 2, '对编程有兴趣即可。', '包含算法、前端、后端三个方向。', 'open', '2026-05-01', '2026-05-31'),
-(2, 2, '摄影社补招', 1, '自备设备优先。', '新手也可报名。', 'open', '2026-05-01', '2026-05-20'),
+INSERT INTO recruitments (recruitment_id, club_id, title, quota, requirements, description, status, start_time, end_time) VALUES
+(1, 1, '计算机协会夏季招新', 2, '对编程有兴趣即可。', '包含算法、前端、后端三个方向。', 'active', '2026-05-01', '2026-05-31'),
+(2, 2, '摄影社补招', 1, '自备设备优先。', '新手也可报名。', 'active', '2026-05-01', '2026-05-20'),
 (3, 3, '篮球社满员招新', 1, '有篮球基础。', '用于测试名额边界。', 'closed', '2026-04-01', '2026-04-30');
 
+INSERT INTO applications (application_id, user_id, club_id, recruitment_id, introduction, status, comments, apply_time, review_time) VALUES
+(1, 7, 1, 1, '未加入任何社团，希望学习编程协作。', 'pending', NULL, '2026-05-06 08:00:00', NULL),
+(2, 6, 2, 2, '有摄影基础，希望参与校园影像记录。', 'approved', '摄影基础良好', '2026-05-07 08:00:00', '2026-05-08 08:00:00');
+
 INSERT INTO activity_signups (activity_id, user_id, signup_time, checkin_time, status) VALUES
-(1, 5, '2026-05-02 11:00:00', NULL, 'registered'),
-(1, 6, '2026-05-02 11:05:00', NULL, 'registered'),
-(2, 5, '2026-05-03 12:00:00', NULL, 'registered'),
-(3, 6, '2026-05-04 13:00:00', NULL, 'registered'),
+(1, 5, '2026-05-02 11:00:00', NULL, 'pending'),
+(1, 6, '2026-05-02 11:05:00', NULL, 'pending'),
+(2, 5, '2026-05-03 12:00:00', NULL, 'pending'),
+(3, 6, '2026-05-04 13:00:00', NULL, 'pending'),
 (4, 5, '2026-04-02 10:00:00', '2026-04-12 18:55:00', 'attended');
 
 INSERT INTO approvals (approval_id, type, related_id, applicant_id, approver_id, status, comments, current_step, total_steps, create_time) VALUES
 (1, 'club_creation', 5, 5, NULL, 'pending', '申请成立机器人创新社', 1, 2, '2026-05-01 09:10:00'),
 (2, 'club_creation', 6, 5, 2, 'rejected', '资料不完整', 2, 2, '2026-04-01 09:10:00'),
-(3, 'activity_application', 6, 3, NULL, 'pending', '待审批活动申请', 1, 2, '2026-05-05 10:10:00'),
-(4, 'recruitment_application', 1, 7, NULL, 'pending', '未加入任何社团的学生申请加入计算机协会', 1, 1, '2026-05-06 08:00:00'),
-(5, 'recruitment_application', 2, 6, 2, 'approved', '摄影基础良好', 1, 1, '2026-05-07 08:00:00');
+(3, 'activity_application', 6, 3, NULL, 'pending', '待审批活动申请', 1, 2, '2026-05-05 10:10:00');
 
 INSERT INTO announcements (announcement_id, title, content, publisher_id, target_type, target_id, status, is_top, view_count, publish_time) VALUES
 (1, '系统维护通知', '系统将于周六凌晨进行维护，请提前保存资料。', 1, 'all', NULL, 'published', 1, 245, '2026-05-01 08:00:00'),

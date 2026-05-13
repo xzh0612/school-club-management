@@ -9,6 +9,7 @@ CREATE DATABASE IF NOT EXISTS club_management
 USE club_management;
 
 SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS = 0;
 
 -- 1) Users
 DROP TABLE IF EXISTS users;
@@ -25,10 +26,13 @@ CREATE TABLE users (
     class_name VARCHAR(50) DEFAULT NULL,
     email VARCHAR(100) DEFAULT NULL,
     phone VARCHAR(20) DEFAULT NULL,
+    token_version INT NOT NULL DEFAULT 0,
     register_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_login_time DATETIME DEFAULT NULL,
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT chk_users_role CHECK (role IN ('admin', 'teacher', 'club_leader', 'student')),
+    CONSTRAINT chk_users_status CHECK (status IN ('active', 'inactive'))
 );
 
 -- 2) Clubs
@@ -42,19 +46,24 @@ CREATE TABLE clubs (
     advisor_id INT DEFAULT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'pending',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT chk_clubs_status CHECK (status IN ('pending', 'approved', 'rejected', 'inactive', 'archived'))
 );
 
 -- 3) Club members (used by test data and profile-related features)
 DROP TABLE IF EXISTS club_members;
 CREATE TABLE club_members (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+    member_id INT PRIMARY KEY AUTO_INCREMENT,
     club_id INT NOT NULL,
     user_id INT NOT NULL,
     role VARCHAR(30) NOT NULL DEFAULT 'member',
     status VARCHAR(20) NOT NULL DEFAULT 'active',
     join_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY uk_club_user (club_id, user_id)
+    UNIQUE KEY uk_club_user (club_id, user_id),
+    CONSTRAINT chk_club_members_role CHECK (role IN ('member', 'leader', 'club_leader')),
+    CONSTRAINT chk_club_members_status CHECK (status IN ('active', 'inactive', 'removed')),
+    CONSTRAINT fk_club_members_club FOREIGN KEY (club_id) REFERENCES clubs(club_id),
+    CONSTRAINT fk_club_members_user FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
 
 -- 4) Activities
@@ -74,26 +83,54 @@ CREATE TABLE activities (
     location VARCHAR(200) DEFAULT NULL,
     status VARCHAR(30) NOT NULL DEFAULT 'draft',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT chk_activities_status CHECK (status IN ('draft', 'pending_approval', 'approved', 'rejected', 'completed', 'cancelled', 'archived')),
+    CONSTRAINT chk_activities_capacity CHECK (max_participants > 0),
+    CONSTRAINT chk_activities_time CHECK (start_time IS NULL OR end_time IS NULL OR end_time >= start_time),
+    CONSTRAINT fk_activities_club FOREIGN KEY (club_id) REFERENCES clubs(club_id)
 );
 
 -- 5) Recruitment plans
-DROP TABLE IF EXISTS recruitment_plans;
-CREATE TABLE recruitment_plans (
+DROP TABLE IF EXISTS recruitments;
+CREATE TABLE recruitments (
     recruitment_id INT PRIMARY KEY AUTO_INCREMENT,
     club_id INT NOT NULL,
     title VARCHAR(200) NOT NULL,
     quota INT NOT NULL,
     requirements TEXT,
     description TEXT,
-    status VARCHAR(20) NOT NULL DEFAULT 'open',
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    start_time DATE NOT NULL,
+    end_time DATE NOT NULL,
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT chk_recruitments_status CHECK (status IN ('active', 'closed', 'inactive', 'archived')),
+    CONSTRAINT chk_recruitments_quota CHECK (quota > 0),
+    CONSTRAINT chk_recruitments_time CHECK (end_time >= start_time),
+    CONSTRAINT fk_recruitments_club FOREIGN KEY (club_id) REFERENCES clubs(club_id)
 );
 
--- 6) Activity signups (reserved for signup features)
+-- 6) Join applications
+DROP TABLE IF EXISTS applications;
+CREATE TABLE applications (
+    application_id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    club_id INT NOT NULL,
+    recruitment_id INT DEFAULT NULL,
+    introduction TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    comments TEXT,
+    apply_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    review_time DATETIME DEFAULT NULL,
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT chk_applications_status CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled', 'archived')),
+    CONSTRAINT fk_applications_user FOREIGN KEY (user_id) REFERENCES users(user_id),
+    CONSTRAINT fk_applications_club FOREIGN KEY (club_id) REFERENCES clubs(club_id),
+    CONSTRAINT fk_applications_recruitment FOREIGN KEY (recruitment_id) REFERENCES recruitments(recruitment_id)
+);
+
+-- 7) Activity signups (reserved for signup features)
 DROP TABLE IF EXISTS activity_signups;
 CREATE TABLE activity_signups (
     signup_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -101,11 +138,14 @@ CREATE TABLE activity_signups (
     user_id INT NOT NULL,
     signup_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     checkin_time DATETIME DEFAULT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'registered',
-    UNIQUE KEY uk_activity_user (activity_id, user_id)
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    UNIQUE KEY uk_activity_user (activity_id, user_id),
+    CONSTRAINT chk_activity_signups_status CHECK (status IN ('pending', 'approved', 'cancelled', 'attended', 'rejected')),
+    CONSTRAINT fk_activity_signups_activity FOREIGN KEY (activity_id) REFERENCES activities(activity_id),
+    CONSTRAINT fk_activity_signups_user FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
 
--- 7) Approvals
+-- 8) Approvals
 DROP TABLE IF EXISTS approvals;
 CREATE TABLE approvals (
     approval_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -118,10 +158,16 @@ CREATE TABLE approvals (
     current_step INT NOT NULL DEFAULT 1,
     total_steps INT NOT NULL DEFAULT 4,
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    approval_time DATETIME DEFAULT NULL,
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT chk_approvals_type CHECK (type IN ('club_creation', 'activity_application')),
+    CONSTRAINT chk_approvals_status CHECK (status IN ('pending', 'approved', 'rejected', 'archived')),
+    CONSTRAINT chk_approvals_steps CHECK (current_step >= 1 AND total_steps >= current_step),
+    CONSTRAINT fk_approvals_applicant FOREIGN KEY (applicant_id) REFERENCES users(user_id),
+    CONSTRAINT fk_approvals_approver FOREIGN KEY (approver_id) REFERENCES users(user_id)
 );
 
--- 8) Announcements
+-- 9) Announcements
 DROP TABLE IF EXISTS announcements;
 CREATE TABLE announcements (
     announcement_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -135,10 +181,14 @@ CREATE TABLE announcements (
     view_count INT NOT NULL DEFAULT 0,
     publish_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    create_time DATETIME DEFAULT CURRENT_TIMESTAMP
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_announcements_target CHECK (target_type IN ('all', 'club')),
+    CONSTRAINT chk_announcements_status CHECK (status IN ('draft', 'published', 'archived')),
+    CONSTRAINT chk_announcements_view_count CHECK (view_count >= 0),
+    CONSTRAINT fk_announcements_publisher FOREIGN KEY (publisher_id) REFERENCES users(user_id)
 );
 
--- 9) Operation logs
+-- 10) Operation logs
 DROP TABLE IF EXISTS operation_logs;
 CREATE TABLE operation_logs (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -149,22 +199,22 @@ CREATE TABLE operation_logs (
     ip VARCHAR(50) DEFAULT NULL,
     user_agent VARCHAR(300) DEFAULT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'success',
-    create_time DATETIME DEFAULT CURRENT_TIMESTAMP
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_operation_logs_status CHECK (status IN ('success', 'warning', 'failed', 'error'))
 );
+
+SET FOREIGN_KEY_CHECKS = 1;
 
 CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_clubs_status ON clubs(status);
 CREATE INDEX idx_activities_club_id ON activities(club_id);
 CREATE INDEX idx_activities_status ON activities(status);
-CREATE INDEX idx_recruitment_plans_club_id ON recruitment_plans(club_id);
-CREATE INDEX idx_recruitment_plans_status ON recruitment_plans(status);
+CREATE INDEX idx_recruitments_club_id ON recruitments(club_id);
+CREATE INDEX idx_recruitments_status ON recruitments(status);
+CREATE INDEX idx_applications_club_status ON applications(club_id, status);
+CREATE INDEX idx_applications_user_club_status ON applications(user_id, club_id, status);
 CREATE INDEX idx_approvals_status ON approvals(status);
 CREATE INDEX idx_announcements_publish_time ON announcements(publish_time);
 CREATE INDEX idx_operation_logs_create_time ON operation_logs(create_time);
 
--- Minimal bootstrap data (password: 123456, BCrypt encoded)
-INSERT INTO users (username, password, real_name, role, email, phone) VALUES
-('admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', '系统管理员', 'admin', 'admin@school.edu.cn', '13800138000'),
-('teacher1', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', '张老师', 'teacher', 'zhang@school.edu.cn', '13800138001'),
-('leader1', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', '社团负责人', 'club_leader', 'leader@school.edu.cn', '13800138002'),
-('student1', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', '普通学生', 'student', 'student@school.edu.cn', '13800138003');
+-- Demo users are intentionally not seeded by default. Use app.bootstrap.default-users for local demos only.

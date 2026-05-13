@@ -1,5 +1,6 @@
 package com.club.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 import java.time.LocalDateTime;
 
@@ -9,6 +10,7 @@ import java.time.LocalDateTime;
 public class User {
     private Integer userId;        // 用户ID
     private String username;       // 用户名
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;       // 密码
     private String realName;       // 真实姓名
     private String role;           // 角色: student, club_leader, teacher, admin
@@ -21,6 +23,7 @@ public class User {
     private LocalDateTime lastLoginTime;   // 最后登录时间
     private String email;          // 邮箱
     private String phone;          // 电话
+    private Integer tokenVersion;  // Token版本，用于登出和敏感变更后失效旧JWT
     private LocalDateTime createTime;  // 创建时间
     private LocalDateTime updateTime;  // 更新时间
     private String clubName;       // 所属社团名称

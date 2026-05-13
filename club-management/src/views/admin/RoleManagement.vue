@@ -2,8 +2,8 @@
   <div class="role-management">
     <!-- 页面头部 -->
     <div class="page-header">
-      <h2>🔐 权限配置</h2>
-      <p>管理系统角色和权限分配</p>
+      <h2>🔐 角色说明</h2>
+      <p>查看系统内置角色、页面入口和当前用户分布</p>
     </div>
 
     <!-- 角色统计卡片 -->
@@ -33,15 +33,15 @@
         <div class="stat-icon bg-purple">🔑</div>
         <div class="stat-info">
           <div class="stat-value">{{ roleStats.permissions }}</div>
-          <div class="stat-label">权限项数</div>
+          <div class="stat-label">页面入口数</div>
         </div>
       </div>
     </div>
 
-    <!-- 角色管理 -->
+    <!-- 角色说明 -->
     <div class="roles-section card">
       <div class="section-header">
-        <h3>角色列表</h3>
+        <h3>内置角色</h3>
       </div>
 
       <el-table :data="roleList" stripe style="width: 100%" v-loading="loading">
@@ -67,9 +67,9 @@
       </el-table>
     </div>
 
-    <!-- 权限树 -->
+    <!-- 入口说明 -->
     <div class="permissions-section card">
-      <h3>权限体系</h3>
+      <h3>页面入口说明</h3>
       <div class="permission-tree">
         <el-tree
           :data="permissionTree"
@@ -87,61 +87,17 @@
       </div>
     </div>
 
-    <!-- 角色对话框 -->
-    <el-dialog v-model="roleDialogVisible" :title="dialogTitle" width="500px">
-      <el-form :model="currentRole" label-width="100px">
-        <el-form-item label="角色名称">
-          <el-input v-model="currentRole.name" placeholder="请输入角色名称"></el-input>
-        </el-form-item>
-        <el-form-item label="角色编码">
-          <el-input v-model="currentRole.code" placeholder="请输入角色编码"></el-input>
-        </el-form-item>
-        <el-form-item label="角色描述">
-          <el-input 
-            v-model="currentRole.description" 
-            type="textarea" 
-            :rows="3" 
-            placeholder="请输入角色描述"
-          ></el-input>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="roleDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveRole">保存</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 权限配置对话框 -->
-    <el-dialog v-model="permissionDialogVisible" :title="`${currentRole.name} - 权限配置`" width="600px">
-      <el-tree
-        ref="permissionTreeRef"
-        :data="permissionTree"
-        show-checkbox
-        node-key="id"
-        :default-expanded-keys="expandedKeys"
-        :default-checked-keys="rolePermissions[currentRole.id] || []"
-        :props="defaultProps"
-      />
-      <template #footer>
-        <el-button @click="permissionDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveRolePermissions">保存权限</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getUserList } from '../../api/user'
 
 // 数据状态
 const loading = ref(false)
-const roleDialogVisible = ref(false)
-const permissionDialogVisible = ref(false)
 const roleList = ref([])
-const currentRole = ref({})
-const rolePermissions = ref({})
 
 // 统计数据
 const roleStats = reactive({
@@ -159,8 +115,8 @@ const permissionTree = ref([
     code: 'SYSTEM_MANAGE',
     children: [
       { id: 11, label: '用户管理', code: 'USER_MANAGE' },
-      { id: 12, label: '角色管理', code: 'ROLE_MANAGE' },
-      { id: 13, label: '权限配置', code: 'PERMISSION_CONFIG' },
+      { id: 12, label: '角色说明', code: 'ROLE_OVERVIEW' },
+      { id: 13, label: '账号状态', code: 'ACCOUNT_STATUS' },
       { id: 14, label: '操作日志', code: 'OPERATION_LOG' }
     ]
   },
@@ -206,11 +162,6 @@ const countPermissionNodes = (nodes) => nodes.reduce((total, item) => {
   return total + 1 + (item.children ? countPermissionNodes(item.children) : 0)
 }, 0)
 
-// 计算属性
-const dialogTitle = computed(() => {
-  return currentRole.value.id ? '编辑角色' : '新建角色'
-})
-
 // 获取角色列表
 const getRoleList = async () => {
   loading.value = true
@@ -234,52 +185,6 @@ const getRoleList = async () => {
   } finally {
     loading.value = false
   }
-}
-
-// 显示角色对话框
-const showRoleDialog = (role = {}) => {
-  currentRole.value = { ...role }
-  roleDialogVisible.value = true
-}
-
-// 编辑角色
-const editRole = (role) => {
-  showRoleDialog(role)
-}
-
-// 保存角色
-const saveRole = () => {
-  ElMessage.info('当前角色为系统内置角色，请在代码和权限规则中维护')
-  roleDialogVisible.value = false
-  getRoleList()
-}
-
-// 切换角色状态
-const toggleRoleStatus = (role) => {
-  ElMessage.info('当前角色状态来自系统内置规则，不能在页面直接切换')
-}
-
-// 删除角色
-const deleteRole = async (role) => {
-  ElMessage.info(`内置角色 "${role.name}" 不能删除`)
-}
-
-// 配置权限
-const configurePermissions = (role) => {
-  currentRole.value = role
-  permissionDialogVisible.value = true
-}
-
-// 保存角色权限
-const saveRolePermissions = () => {
-  const checkedNodes = permissionTreeRef.value.getCheckedNodes()
-  const halfCheckedNodes = permissionTreeRef.value.getHalfCheckedNodes()
-  rolePermissions.value[currentRole.value.id] = [
-    ...checkedNodes.map(node => node.id),
-    ...halfCheckedNodes.map(node => node.id)
-  ]
-  ElMessage.info('权限树仅展示当前系统规则，实际权限由后端 SecurityContext 和路由配置控制')
-  permissionDialogVisible.value = false
 }
 
 // 初始化

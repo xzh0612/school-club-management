@@ -1,5 +1,6 @@
 package com.club.service.impl;
 
+import com.club.common.PageQuery;
 import com.club.entity.*;
 import com.club.mapper.ActivityMapper;
 import com.club.mapper.ApprovalMapper;
@@ -8,6 +9,7 @@ import com.club.service.ClubMemberService;
 import com.club.service.ApprovalService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 @Service
@@ -21,17 +23,18 @@ public class ApprovalServiceImpl implements ApprovalService {
 
     @Override
     public List<Approval> list(String type, String status, int page, int size) {
-        int offset = (page - 1) * size;
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
         if (type != null && !type.isBlank() && status != null && !status.isBlank()) {
-            return approvalMapper.findByTypeAndStatus(type, status, offset, size);
+            return approvalMapper.findByTypeAndStatus(type, status, offset, pageSize);
         }
         if (type != null && !type.isBlank()) {
-            return approvalMapper.findByType(type, offset, size);
+            return approvalMapper.findByType(type, offset, pageSize);
         }
         if (status != null && !status.isBlank()) {
-            return approvalMapper.findByStatus(status, offset, size);
+            return approvalMapper.findByStatus(status, offset, pageSize);
         }
-        return approvalMapper.findAll(offset, size);
+        return approvalMapper.findAll(offset, pageSize);
     }
     
     @Override
@@ -47,6 +50,18 @@ public class ApprovalServiceImpl implements ApprovalService {
         }
         return approvalMapper.countAll();
     }
+
+    @Override
+    public List<Approval> listForAdvisor(Integer advisorId, String type, String status, int page, int size) {
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
+        return approvalMapper.findVisibleToAdvisor(advisorId, type, status, offset, pageSize);
+    }
+
+    @Override
+    public int countForAdvisor(Integer advisorId, String type, String status) {
+        return approvalMapper.countVisibleToAdvisor(advisorId, type, status);
+    }
     
     @Override
     public Approval getById(Integer id) {
@@ -57,6 +72,10 @@ public class ApprovalServiceImpl implements ApprovalService {
     public Approval create(Approval approval) {
         if (!"club_creation".equals(approval.getType()) && !"activity_application".equals(approval.getType())) {
             throw new RuntimeException("审批类型只能是社团成立或活动申请");
+        }
+        if (approval.getRelatedId() != null
+                && approvalMapper.countPendingByTypeAndRelated(approval.getType(), approval.getRelatedId()) > 0) {
+            throw new RuntimeException("该事项已有待处理审批，不能重复提交");
         }
         if (approval.getCurrentStep() == null) {
             approval.setCurrentStep(1);
@@ -81,23 +100,37 @@ public class ApprovalServiceImpl implements ApprovalService {
     
     @Override
     public List<Approval> pendingList(int page, int size) {
-        int offset = (page - 1) * size;
-        return approvalMapper.findPending(offset, size);
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
+        return approvalMapper.findPending(offset, pageSize);
     }
     
     @Override
     public int pendingCount() { 
         return approvalMapper.countPending(); 
     }
+
+    @Override
+    public List<Approval> pendingListForAdvisor(Integer advisorId, int page, int size) {
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
+        return approvalMapper.findVisibleToAdvisor(advisorId, null, "pending", offset, pageSize);
+    }
+
+    @Override
+    public int pendingCountForAdvisor(Integer advisorId) {
+        return approvalMapper.countVisibleToAdvisor(advisorId, null, "pending");
+    }
     
     @Override
+    @Transactional
     public void approve(Integer id, Integer approverId, String comments) {
         Approval existing = approvalMapper.findById(id);
         if (existing == null) {
             throw new RuntimeException("审批记录不存在");
         }
-        if ("recruitment_application".equals(existing.getType())) {
-            throw new RuntimeException("入社申请应由社团负责人在招新管理中审核");
+        if (!"pending".equals(existing.getStatus())) {
+            throw new RuntimeException("审批记录已处理");
         }
         Approval approval = new Approval();
         approval.setApprovalId(id);
@@ -109,13 +142,14 @@ public class ApprovalServiceImpl implements ApprovalService {
     }
     
     @Override
+    @Transactional
     public void reject(Integer id, Integer approverId, String comments) {
         Approval existing = approvalMapper.findById(id);
         if (existing == null) {
             throw new RuntimeException("审批记录不存在");
         }
-        if ("recruitment_application".equals(existing.getType())) {
-            throw new RuntimeException("入社申请应由社团负责人在招新管理中审核");
+        if (!"pending".equals(existing.getStatus())) {
+            throw new RuntimeException("审批记录已处理");
         }
         Approval approval = new Approval();
         approval.setApprovalId(id);
@@ -128,19 +162,33 @@ public class ApprovalServiceImpl implements ApprovalService {
     
     @Override
     public List<Approval> search(String keyword, int page, int size) {
-        int offset = (page - 1) * size;
-        return approvalMapper.search(keyword, offset, size);
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
+        return approvalMapper.search(keyword, offset, pageSize);
     }
     
     @Override
     public int searchCount(String keyword) {
         return approvalMapper.searchCount(keyword);
     }
+
+    @Override
+    public List<Approval> searchForAdvisor(Integer advisorId, String keyword, int page, int size) {
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
+        return approvalMapper.searchVisibleToAdvisor(advisorId, keyword, offset, pageSize);
+    }
+
+    @Override
+    public int searchCountForAdvisor(Integer advisorId, String keyword) {
+        return approvalMapper.searchCountVisibleToAdvisor(advisorId, keyword);
+    }
     
     @Override
     public List<Approval> getByApprover(Integer approverId, int page, int size) {
-        int offset = (page - 1) * size;
-        return approvalMapper.findByApproverId(approverId, offset, size);
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
+        return approvalMapper.findByApproverId(approverId, offset, pageSize);
     }
     
     @Override
@@ -150,8 +198,9 @@ public class ApprovalServiceImpl implements ApprovalService {
     
     @Override
     public List<Approval> getByApplicant(Integer applicantId, int page, int size) {
-        int offset = (page - 1) * size;
-        return approvalMapper.findByApplicantId(applicantId, offset, size);
+        int pageSize = PageQuery.normalizeSize(size);
+        int offset = PageQuery.offset(page, size);
+        return approvalMapper.findByApplicantId(applicantId, offset, pageSize);
     }
     
     @Override

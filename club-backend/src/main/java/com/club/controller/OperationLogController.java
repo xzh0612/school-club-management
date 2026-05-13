@@ -37,9 +37,4 @@ public class OperationLogController {
         return Result.ok(operationLogService.getById(id));
     }
     
-    @PostMapping
-    public Result<OperationLog> create(@RequestBody OperationLog log, HttpServletRequest request) {
-        securityContext.requireAdmin(request);
-        return Result.ok(operationLogService.create(log));
-    }
 }

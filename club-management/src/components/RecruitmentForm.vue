@@ -150,8 +150,8 @@ const handleSubmit = async () => {
     return
   }
   
-  if (new Date(formData.startTime) >= new Date(formData.endTime)) {
-    alert('开始时间必须早于截止时间')
+  if (new Date(formData.startTime) > new Date(formData.endTime)) {
+    alert('开始时间不能晚于截止时间')
     return
   }
   
@@ -175,7 +175,9 @@ const handleSubmit = async () => {
 const loadClubs = async () => {
   const response = await getClubList(1, 100, 'approved', '')
   const records = response.data?.records || []
-  clubs.value = records.map(club => ({ id: club.clubId, name: club.clubName }))
+  clubs.value = records
+    .filter(club => club.status === 'approved')
+    .map(club => ({ id: club.clubId, name: club.clubName }))
 }
 
 onMounted(loadClubs)

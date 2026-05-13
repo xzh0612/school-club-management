@@ -16,7 +16,7 @@ request.interceptors.request.use(
     }
     
     // 添加 token
-    const token = localStorage.getItem('token')
+    const token = sessionStorage.getItem('token')
     if (token) {
       config.headers.Authorization = token.startsWith('Bearer ') ? token : `Bearer ${token}`
     }
@@ -41,9 +41,9 @@ request.interceptors.response.use(
       
       // 401: 未授权，跳转到登录页
       if (res.code === 401) {
-        localStorage.removeItem('user')
-        localStorage.removeItem('token')
-        window.location.href = '/login'
+        sessionStorage.removeItem('user')
+        sessionStorage.removeItem('token')
+        window.dispatchEvent(new Event('auth:expired'))
       }
       
       return Promise.reject(new Error(errorMsg))
@@ -56,6 +56,11 @@ request.interceptors.response.use(
     console.error('错误响应:', error.response?.data)
     const errorMsg = error.response?.data?.msg || error.response?.data?.message || error.message || '网络错误，请稍后重试'
     ElMessage.error(errorMsg)
+    if (error.response?.status === 401) {
+      sessionStorage.removeItem('user')
+      sessionStorage.removeItem('token')
+      window.dispatchEvent(new Event('auth:expired'))
+    }
     return Promise.reject(error)
   }
 )

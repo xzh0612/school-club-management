@@ -33,22 +33,22 @@ export function getUserActivities(userId) {
 /**
  * 获取用户列表
  */
-export function getUserList(page = 1, size = 10, role = '') {
+export function getUserList(page = 1, size = 10, role = '', status = '') {
   return request({
     url: '/users',
     method: 'get',
-    params: { page, size, role }
+    params: { page, size, role, status }
   })
 }
 
 /**
  * 搜索用户
  */
-export function searchUsers(keyword, page = 1, size = 10) {
+export function searchUsers(keyword, page = 1, size = 10, role = '', status = '') {
   return request({
     url: '/users/search',
     method: 'get',
-    params: { keyword, page, size }
+    params: { keyword, page, size, role, status }
   })
 }
 

@@ -39,7 +39,10 @@
             <td>{{u.club}}</td>
             <td><span :class="['tag', u.status==='正常'?'tag-green':'tag-gray']">{{u.status}}</span></td>
             <td>{{u.lastLogin}}</td>
-            <td><button class="btn btn-outline btn-sm" @click="handleEditClick(u)">编辑</button></td>
+            <td>
+              <button v-if="canEditUser(u.rawRole)" class="btn btn-outline btn-sm" @click="handleEditClick(u)">编辑</button>
+              <span v-else style="color:#9CA3AF;font-size:12px">社团负责人维护</span>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -251,6 +254,8 @@ const getRoleClass = (role) => {
   }
   return classMap[role] || 'tag-gray'
 }
+
+const canEditUser = (role) => ['admin', 'teacher'].includes(role)
 
 // 格式化日期
 const formatDate = (dateString) => {

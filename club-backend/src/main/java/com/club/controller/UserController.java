@@ -9,6 +9,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api")
@@ -41,11 +42,9 @@ public class UserController {
     @PutMapping("/users/{id}")
     public Result<User> update(@PathVariable Integer id, @RequestBody Map<String, Object> updates, HttpServletRequest request) {
         Integer currentUserId = securityContext.currentUserId(request);
-        if (!securityContext.isAdmin(request) && !currentUserId.equals(id)) {
-            throw new RuntimeException("只能修改自己的个人信息");
-        }
         User existingUser = userService.getById(id);
         if (existingUser == null) return Result.error("用户不存在");
+        validateUserUpdateScope(existingUser, updates, currentUserId.equals(id), request);
 
         if (updates.containsKey("username")) existingUser.setUsername((String) updates.get("username"));
         if (updates.containsKey("realName")) existingUser.setRealName((String) updates.get("realName"));
@@ -59,10 +58,36 @@ public class UserController {
             securityContext.requireAdmin(request);
             existingUser.setRole((String) updates.get("role"));
         }
+        if (updates.containsKey("status")) existingUser.setStatus((String) updates.get("status"));
         if (updates.containsKey("email")) existingUser.setEmail((String) updates.get("email"));
         if (updates.containsKey("phone")) existingUser.setPhone((String) updates.get("phone"));
 
         return Result.ok(userService.update(existingUser));
+    }
+
+    private void validateUserUpdateScope(User target, Map<String, Object> updates, boolean selfUpdate, HttpServletRequest request) {
+        if (selfUpdate) {
+            ensureAllowedFields(updates, Set.of("realName", "password", "department", "className", "email", "phone"));
+            return;
+        }
+
+        securityContext.requireAdmin(request);
+        if (isClubMemberAccount(target)) {
+            throw new RuntimeException("普通社员资料不能在管理员用户管理中修改，请由本人或社团负责人维护");
+        }
+        ensureAllowedFields(updates, Set.of("username", "realName", "password", "role", "status", "email", "phone"));
+    }
+
+    private boolean isClubMemberAccount(User user) {
+        return "student".equals(user.getRole()) || "club_leader".equals(user.getRole());
+    }
+
+    private void ensureAllowedFields(Map<String, Object> updates, Set<String> allowedFields) {
+        for (String field : updates.keySet()) {
+            if (!allowedFields.contains(field)) {
+                throw new RuntimeException("无权修改字段：" + field);
+            }
+        }
     }
 
     @DeleteMapping("/users/{id}")

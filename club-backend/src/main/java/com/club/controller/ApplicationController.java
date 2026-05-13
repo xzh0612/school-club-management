@@ -31,17 +31,16 @@ public class ApplicationController {
             Integer userId = securityContext.currentUserId(request);
             return Result.ok(PageResult.of(applicationService.listByUser(userId, page, size), applicationService.countByUser(userId), page, size));
         }
-        if (!securityContext.isAdmin(request) && !securityContext.isTeacher(request)) {
-            Integer managedClubId = securityContext.currentUser(request).getClubId();
-            return Result.ok(PageResult.of(
-                    applicationService.list(managedClubId, status, securityContext.currentUserId(request), false, page, size),
-                    applicationService.count(managedClubId, status, securityContext.currentUserId(request), false),
-                    page,
-                    size));
+        if (!securityContext.isLeader(request)) {
+            throw new RuntimeException("只有社团负责人可以查看入社申请");
+        }
+        Integer managedClubId = securityContext.currentUser(request).getClubId();
+        if (managedClubId == null) {
+            throw new RuntimeException("当前负责人未绑定社团");
         }
         return Result.ok(PageResult.of(
-                applicationService.list(clubId, status, securityContext.currentUserId(request), true, page, size),
-                applicationService.count(clubId, status, securityContext.currentUserId(request), true),
+                applicationService.list(managedClubId, status, securityContext.currentUserId(request), false, page, size),
+                applicationService.count(managedClubId, status, securityContext.currentUserId(request), false),
                 page,
                 size));
     }
@@ -55,9 +54,9 @@ public class ApplicationController {
         if (securityContext.isStudent(request) && !securityContext.currentUserId(request).equals(application.getUserId())) {
             throw new RuntimeException("只能查看自己的入社申请");
         }
-        if (!securityContext.isAdmin(request) && !securityContext.isTeacher(request) && !securityContext.isStudent(request)) {
+        if (!securityContext.isStudent(request)) {
             Club club = clubService.getById(application.getClubId().longValue());
-            securityContext.requireClubManager(request, club);
+            securityContext.requireClubLeader(request, club);
         }
         return Result.ok(application);
     }
@@ -80,7 +79,7 @@ public class ApplicationController {
         if (application == null) {
             throw new RuntimeException("入社申请不存在");
         }
-        securityContext.requireClubManager(request, clubService.getById(application.getClubId().longValue()));
+        securityContext.requireClubLeader(request, clubService.getById(application.getClubId().longValue()));
         String comments = body != null ? (String) body.get("comments") : "";
         applicationService.approve(id, securityContext.currentUserId(request), comments != null ? comments : "");
         return Result.ok();
@@ -92,7 +91,7 @@ public class ApplicationController {
         if (application == null) {
             throw new RuntimeException("入社申请不存在");
         }
-        securityContext.requireClubManager(request, clubService.getById(application.getClubId().longValue()));
+        securityContext.requireClubLeader(request, clubService.getById(application.getClubId().longValue()));
         String comments = body != null ? (String) body.get("comments") : "";
         applicationService.reject(id, securityContext.currentUserId(request), comments != null ? comments : "");
         return Result.ok();

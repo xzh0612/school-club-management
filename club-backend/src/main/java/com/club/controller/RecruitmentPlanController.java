@@ -26,10 +26,14 @@ public class RecruitmentPlanController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) Integer clubId,
             HttpServletRequest request) {
-        Integer effectiveClubId = clubId;
-        if (!securityContext.isAdmin(request) && !securityContext.isTeacher(request) && !securityContext.isStudent(request)) {
-            effectiveClubId = securityContext.currentUser(request).getClubId();
+        if (!securityContext.isLeader(request)) {
+            throw new RuntimeException("只有社团负责人可以查看招新计划");
         }
+        Integer effectiveClubId = clubId != null ? clubId : securityContext.currentUser(request).getClubId();
+        if (effectiveClubId == null) {
+            throw new RuntimeException("当前负责人未绑定社团");
+        }
+        securityContext.requireClubLeader(request, clubService.getById(effectiveClubId.longValue()));
         return Result.ok(PageResult.of(
                 recruitmentPlanService.list(effectiveClubId, page, size),
                 recruitmentPlanService.count(effectiveClubId),
@@ -40,7 +44,7 @@ public class RecruitmentPlanController {
     @PostMapping
     public Result<RecruitmentPlan> create(@RequestBody RecruitmentPlan plan, HttpServletRequest request) {
         Club club = clubService.getById(plan.getClubId().longValue());
-        securityContext.requireClubManager(request, club);
+        securityContext.requireClubLeader(request, club);
         return Result.ok(recruitmentPlanService.create(plan));
     }
 
@@ -50,7 +54,7 @@ public class RecruitmentPlanController {
         if (existing == null) {
             throw new RuntimeException("招新计划不存在");
         }
-        securityContext.requireClubManager(request, clubService.getById(existing.getClubId().longValue()));
+        securityContext.requireClubLeader(request, clubService.getById(existing.getClubId().longValue()));
         plan.setRecruitmentId(id);
         if (plan.getClubId() == null) {
             plan.setClubId(existing.getClubId());
@@ -64,7 +68,7 @@ public class RecruitmentPlanController {
         if (existing == null) {
             throw new RuntimeException("招新计划不存在");
         }
-        securityContext.requireClubManager(request, clubService.getById(existing.getClubId().longValue()));
+        securityContext.requireClubLeader(request, clubService.getById(existing.getClubId().longValue()));
         recruitmentPlanService.delete(id);
         return Result.ok();
     }

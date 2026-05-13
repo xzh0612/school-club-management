@@ -84,6 +84,24 @@ public class SecurityContext {
         throw new RuntimeException("无权管理该社团");
     }
 
+    public void requireClubLeader(HttpServletRequest request, Club club) {
+        if (club == null) {
+            throw new RuntimeException("社团不存在");
+        }
+
+        User user = currentUser(request);
+        Integer userId = user.getUserId();
+        Integer managedClubId = user.getClubId();
+        boolean ownsClub = userId != null && userId.equals(club.getFounderId());
+        boolean leadsClub = isLeader(request) && managedClubId != null && managedClubId.equals(club.getClubId());
+
+        if (ownsClub || leadsClub) {
+            return;
+        }
+
+        throw new RuntimeException("只有社团负责人可以执行该操作");
+    }
+
     public Integer managedClubId(HttpServletRequest request) {
         if (isAdmin(request) || isTeacher(request)) {
             return null;

@@ -126,7 +126,7 @@ public class ClubController {
             @PathVariable Integer id,
             @RequestBody java.util.Map<String, Object> body,
             HttpServletRequest request) {
-        securityContext.requireClubManager(request, clubService.getById(id.longValue()));
+        securityContext.requireClubLeader(request, clubService.getById(id.longValue()));
         Integer userId = ((Number) body.get("userId")).intValue();
         String role = (String) body.get("role");
         return Result.ok(clubMemberService.addMember(id, userId, role));
@@ -138,7 +138,7 @@ public class ClubController {
             @PathVariable Integer userId,
             @RequestBody java.util.Map<String, Object> body,
             HttpServletRequest request) {
-        securityContext.requireClubManager(request, clubService.getById(id.longValue()));
+        securityContext.requireClubLeader(request, clubService.getById(id.longValue()));
         String role = (String) body.get("role");
         String status = (String) body.get("status");
         return Result.ok(clubMemberService.updateMember(id, userId, role, status));
@@ -149,7 +149,7 @@ public class ClubController {
             @PathVariable Integer id,
             @PathVariable Integer userId,
             HttpServletRequest request) {
-        securityContext.requireClubManager(request, clubService.getById(id.longValue()));
+        securityContext.requireClubLeader(request, clubService.getById(id.longValue()));
         clubMemberService.removeMember(id, userId);
         return Result.ok();
     }

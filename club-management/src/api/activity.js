@@ -4,17 +4,11 @@ import request from '../utils/request'
  * 获取活动列表
  */
 export function getActivityList(page = 1, size = 10, status = '', clubId = '') {
-  console.log('=== getActivityList 调用 ===')
-  console.log('参数:', { page, size, status, clubId })
-  
-  const result = request({
+  return request({
     url: '/activities',
     method: 'get',
     params: { page, size, status, clubId }
   })
-  
-  console.log('请求Promise创建完成')
-  return result
 }
 
 /**

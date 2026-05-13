@@ -10,6 +10,7 @@ public class Club {
     private Integer clubId;        // 社团ID
     private String clubName;       // 社团名称
     private String description;    // 社团简介
+    private String clubType;       // 社团类型
     private Integer founderId;     // 创始人ID
     private Integer advisorId;     // 指导老师ID
     private String status;         // 状态: pending, approved, rejected, inactive

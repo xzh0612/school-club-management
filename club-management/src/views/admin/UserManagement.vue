@@ -34,7 +34,7 @@
         <tbody>
           <tr v-for="u in users" :key="u.id">
             <td><div style="display:flex;align-items:center;gap:8px"><div class="avatar" :style="{background:u.color}">{{u.avatar}}</div><div><div style="font-weight:500">{{u.name}}</div><div style="font-size:11px;color:#9CA3AF">{{u.email}}</div></div></div></td>
-            <td>{{u.id}}</td>
+            <td>{{u.studentId || '—'}}</td>
             <td><span :class="['tag', u.roleClass]">{{u.role}}</span></td>
             <td>{{u.club}}</td>
             <td><span :class="['tag', u.status==='正常'?'tag-green':'tag-gray']">{{u.status}}</span></td>
@@ -192,15 +192,17 @@ const fetchUsers = async () => {
     users.value = response.data.records.map(user => ({
       id: user.userId,
       username: user.username,
+      studentId: user.studentId,
       name: user.realName,
       email: user.email,
-      avatar: user.realName.charAt(0),
+      avatar: (user.realName || user.username || 'U').charAt(0),
       color: getColorByRole(user.role),
+      rawRole: user.role,
       role: getRoleDisplayName(user.role),
       roleClass: getRoleClass(user.role),
-      club: getClubByUserId(user.userId),
-      status: '正常', // TODO: 从数据库获取实际状态
-      lastLogin: formatDate(user.createTime)
+      club: user.clubName || '—',
+      status: user.status === 'inactive' ? '禁用' : '正常',
+      lastLogin: formatDate(user.lastLoginTime)
     }))
     
     totalUsers.value = response.data.total
@@ -248,24 +250,6 @@ const getRoleClass = (role) => {
     'student': 'tag-blue'
   }
   return classMap[role] || 'tag-gray'
-}
-
-// 根据用户ID获取所属社团（简化处理）
-const getClubByUserId = (userId) => {
-  // TODO: 实际应该调用社团成员关系API
-  const clubMap = {
-    1: '—',
-    2: '—',
-    3: '计算机协会',
-    4: '计算机协会',
-    5: '计算机协会',
-    6: '计算机协会',
-    7: '摄影社',
-    8: '摄影社',
-    9: '文学社',
-    10: '文学社'
-  }
-  return clubMap[userId] || '—'
 }
 
 // 格式化日期
@@ -365,12 +349,10 @@ const handleEditClick = (user) => {
   // 将用户数据填充到编辑表单
   editUser.value = {
     userId: user.id,
-    username: user.name,
+    username: user.username,
     realName: user.name,
     password: '',
-    role: user.role === '系统管理员' ? 'admin' : 
-           user.role === '指导老师' ? 'teacher' : 
-           user.role === '社团负责人' ? 'club_leader' : 'student',
+    role: user.rawRole,
     email: user.email || '',
     phone: user.phone || ''
   }
@@ -409,10 +391,7 @@ const handleEditUser = async () => {
       updateData.password = editUser.value.password
     }
     
-    console.log('发送更新请求:', editUser.value.userId, updateData)
-    
     const result = await updateUser(editUser.value.userId, updateData)
-    console.log('更新响应:', result)
     
     alert('用户信息更新成功！')
     showEditUserDialog.value = false

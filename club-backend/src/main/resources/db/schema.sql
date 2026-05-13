@@ -37,6 +37,7 @@ CREATE TABLE clubs (
     club_id INT PRIMARY KEY AUTO_INCREMENT,
     club_name VARCHAR(100) NOT NULL,
     description TEXT,
+    club_type VARCHAR(50) NOT NULL DEFAULT 'general',
     founder_id INT DEFAULT NULL,
     advisor_id INT DEFAULT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'pending',
@@ -63,6 +64,11 @@ CREATE TABLE activities (
     club_id INT NOT NULL,
     title VARCHAR(200) NOT NULL,
     content TEXT,
+    type VARCHAR(50) DEFAULT NULL,
+    max_participants INT NOT NULL DEFAULT 50,
+    registration_deadline DATETIME DEFAULT NULL,
+    organizer VARCHAR(50) DEFAULT NULL,
+    contact VARCHAR(100) DEFAULT NULL,
     start_time DATETIME DEFAULT NULL,
     end_time DATETIME DEFAULT NULL,
     location VARCHAR(200) DEFAULT NULL,
@@ -71,7 +77,23 @@ CREATE TABLE activities (
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- 5) Activity signups (reserved for signup features)
+-- 5) Recruitment plans
+DROP TABLE IF EXISTS recruitment_plans;
+CREATE TABLE recruitment_plans (
+    recruitment_id INT PRIMARY KEY AUTO_INCREMENT,
+    club_id INT NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    quota INT NOT NULL,
+    requirements TEXT,
+    description TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'open',
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- 6) Activity signups (reserved for signup features)
 DROP TABLE IF EXISTS activity_signups;
 CREATE TABLE activity_signups (
     signup_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -83,7 +105,7 @@ CREATE TABLE activity_signups (
     UNIQUE KEY uk_activity_user (activity_id, user_id)
 );
 
--- 6) Approvals
+-- 7) Approvals
 DROP TABLE IF EXISTS approvals;
 CREATE TABLE approvals (
     approval_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -99,7 +121,7 @@ CREATE TABLE approvals (
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- 7) Announcements
+-- 8) Announcements
 DROP TABLE IF EXISTS announcements;
 CREATE TABLE announcements (
     announcement_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -116,7 +138,7 @@ CREATE TABLE announcements (
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- 8) Operation logs
+-- 9) Operation logs
 DROP TABLE IF EXISTS operation_logs;
 CREATE TABLE operation_logs (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -134,6 +156,8 @@ CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_clubs_status ON clubs(status);
 CREATE INDEX idx_activities_club_id ON activities(club_id);
 CREATE INDEX idx_activities_status ON activities(status);
+CREATE INDEX idx_recruitment_plans_club_id ON recruitment_plans(club_id);
+CREATE INDEX idx_recruitment_plans_status ON recruitment_plans(status);
 CREATE INDEX idx_approvals_status ON approvals(status);
 CREATE INDEX idx_announcements_publish_time ON announcements(publish_time);
 CREATE INDEX idx_operation_logs_create_time ON operation_logs(create_time);

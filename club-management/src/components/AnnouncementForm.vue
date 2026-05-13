@@ -29,13 +29,11 @@
           </div>
           
           <div class="form-group">
-            <label>发布人 *</label>
-            <input 
-              v-model="formData.author" 
-              type="text" 
-              placeholder="请输入发布人姓名"
-              required
-            />
+            <label>发布范围 *</label>
+            <select v-model="formData.targetType" required>
+              <option value="all">全校</option>
+              <option value="club">社团</option>
+            </select>
           </div>
         </div>
         
@@ -95,7 +93,8 @@ const loading = ref(false)
 const formData = reactive({
   title: '',
   type: '',
-  author: '',
+  targetType: 'all',
+  targetId: null,
   pinned: false,
   content: ''
 })
@@ -106,7 +105,8 @@ watch(() => props.initialData, (newVal) => {
     Object.assign(formData, {
       title: newVal.title || '',
       type: newVal.type || '',
-      author: newVal.author || '',
+      targetType: newVal.targetType || 'all',
+      targetId: newVal.targetId || null,
       pinned: newVal.pinned || false,
       content: newVal.content || ''
     })
@@ -114,7 +114,7 @@ watch(() => props.initialData, (newVal) => {
 }, { immediate: true })
 
 const handleSubmit = async () => {
-  if (!formData.title || !formData.type || !formData.author || !formData.content) {
+  if (!formData.title || !formData.type || !formData.targetType || !formData.content) {
     alert('请填写所有必填项')
     return
   }
@@ -122,9 +122,6 @@ const handleSubmit = async () => {
   loading.value = true
   
   try {
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
     emit('submit', { ...formData })
   } catch (error) {
     console.error('提交失败:', error)

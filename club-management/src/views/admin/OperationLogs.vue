@@ -158,6 +158,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { getOperationLogs } from '../../api/log'
 
 // 数据状态
 const loading = ref(false)
@@ -177,77 +178,28 @@ const filters = reactive({
 
 // 统计数据
 const stats = reactive({
-  total: 1247,
-  success: 1189,
-  warning: 32,
-  error: 26
+  total: 0,
+  success: 0,
+  warning: 0,
+  error: 0
 })
 
 // 获取日志列表
 const getLogList = async () => {
   loading.value = true
   try {
-    // 模拟数据
-    const mockData = [
-      {
-        id: 1001,
-        operator: '系统管理员',
-        module: 'user',
-        action: 'create',
-        description: '创建新用户：张三',
-        ip: '192.168.1.100',
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        createTime: '2026-03-21 14:30:25',
-        status: 'success'
-      },
-      {
-        id: 1002,
-        operator: '奚梓恒',
-        module: 'club',
-        action: 'update',
-        description: '更新计算机协会信息',
-        ip: '192.168.1.101',
-        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
-        createTime: '2026-03-21 14:25:18',
-        status: 'success'
-      },
-      {
-        id: 1003,
-        operator: '刘硕',
-        module: 'activity',
-        action: 'delete',
-        description: '删除篮球社活动：新生杯赛程公布',
-        ip: '192.168.1.102',
-        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
-        createTime: '2026-03-21 14:20:45',
-        status: 'warning'
-      },
-      {
-        id: 1004,
-        operator: '马子健',
-        module: 'announcement',
-        action: 'create',
-        description: '发布公告：关于2026年春季社团年审工作的通知',
-        ip: '192.168.1.103',
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        createTime: '2026-03-21 14:15:32',
-        status: 'success'
-      },
-      {
-        id: 1005,
-        operator: '系统管理员',
-        module: 'system',
-        action: 'login',
-        description: '系统管理员登录系统',
-        ip: '192.168.1.100',
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        createTime: '2026-03-21 14:10:15',
-        status: 'success'
-      }
-    ]
-
-    logList.value = mockData
-    total.value = mockData.length
+    const response = await getOperationLogs({
+      page: currentPage.value,
+      size: pageSize.value,
+      module: filters.module,
+      operator: filters.operator
+    })
+    logList.value = response.data.records || []
+    total.value = response.data.total || 0
+    stats.total = total.value
+    stats.success = logList.value.filter(log => log.status === 'success').length
+    stats.warning = logList.value.filter(log => log.status === 'warning').length
+    stats.error = logList.value.filter(log => log.status === 'failed' || log.status === 'error').length
   } catch (error) {
     ElMessage.error('获取日志列表失败')
   } finally {

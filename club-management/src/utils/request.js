@@ -18,7 +18,7 @@ request.interceptors.request.use(
     // 添加 token
     const token = localStorage.getItem('token')
     if (token) {
-      config.headers.Authorization = token
+      config.headers.Authorization = token.startsWith('Bearer ') ? token : `Bearer ${token}`
     }
     return config
   },
@@ -32,7 +32,6 @@ request.interceptors.request.use(
 request.interceptors.response.use(
   response => {
     const res = response.data
-    console.log('API响应:', res)
     
     // 如果返回的状态码不是 200，说明接口有错误
     if (res.code !== 200) {

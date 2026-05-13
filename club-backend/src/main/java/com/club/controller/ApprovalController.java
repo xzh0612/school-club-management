@@ -5,6 +5,7 @@ import com.club.entity.*;
 import com.club.service.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api")
@@ -12,130 +13,105 @@ import org.springframework.web.bind.annotation.*;
 public class ApprovalController {
 
     private final ApprovalService approvalService;
+    private final SecurityContext securityContext;
 
     @GetMapping("/approvals")
     public Result<PageResult<Approval>> list(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String type,
-            @RequestParam(required = false) String status) {
+            @RequestParam(required = false) String status,
+            HttpServletRequest request) {
+        securityContext.requireAdminOrTeacher(request);
+        if ("recruitment_application".equals(type)) {
+            throw new RuntimeException("入社申请由社团负责人在招新管理中审核");
+        }
         return Result.ok(PageResult.of(approvalService.list(type, status, page, size), approvalService.count(type, status), page, size));
     }
 
     @GetMapping("/approvals/{id}")
-    public Result<Approval> detail(@PathVariable Integer id) {
+    public Result<Approval> detail(@PathVariable Integer id, HttpServletRequest request) {
+        securityContext.requireAdminOrTeacher(request);
         return Result.ok(approvalService.getById(id));
     }
 
     @GetMapping("/approvals/pending")
     public Result<PageResult<Approval>> pendingList(
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            HttpServletRequest request) {
+        securityContext.requireAdminOrTeacher(request);
         return Result.ok(PageResult.of(approvalService.pendingList(page, size), approvalService.pendingCount(), page, size));
     }
 
     @GetMapping("/approvals/pending/count")
-    public Result<Integer> pendingCount() {
+    public Result<Integer> pendingCount(HttpServletRequest request) {
+        securityContext.requireAdminOrTeacher(request);
         return Result.ok(approvalService.pendingCount());
     }
 
     @PostMapping("/approvals")
-    public Result<Approval> create(@RequestBody Approval approval) {
-        return Result.ok(approvalService.create(approval));
+    public Result<Approval> create(@RequestBody Approval approval, HttpServletRequest request) {
+        throw new RuntimeException("审批记录由社团成立或活动申请流程自动生成，不能手工创建");
     }
 
     @PutMapping("/approvals/{id}")
-    public Result<Approval> update(@PathVariable Integer id, @RequestBody Approval approval) {
+    public Result<Approval> update(@PathVariable Integer id, @RequestBody Approval approval, HttpServletRequest request) {
+        securityContext.requireAdminOrTeacher(request);
         approval.setApprovalId(id);
         return Result.ok(approvalService.update(approval));
     }
 
     @DeleteMapping("/approvals/{id}")
-    public Result<Void> delete(@PathVariable Integer id) {
+    public Result<Void> delete(@PathVariable Integer id, HttpServletRequest request) {
+        securityContext.requireAdmin(request);
         approvalService.delete(id);
         return Result.ok();
     }
 
     @PostMapping("/approvals/{id}/approve")
-    public Result<Void> approve(@PathVariable Integer id, @RequestBody(required = false) java.util.Map<String, Object> requestBody) {
-        System.out.println("=== 收到审批通过请求 ===");
-        System.out.println("审批ID: " + id);
-        System.out.println("请求体: " + requestBody);
-        System.out.println("请求体类型: " + (requestBody != null ? requestBody.getClass().getName() : "null"));
-        
-        try {
-            String comments = requestBody != null ? (String) requestBody.get("comments") : "";
-            System.out.println("审批意见: " + comments);
-            
-            approvalService.approve(id, comments != null ? comments : "");
-            System.out.println("审批通过成功");
-            return Result.ok();
-        } catch (Exception e) {
-            System.err.println("审批通过时发生错误: " + e.getMessage());
-            e.printStackTrace();
-            return Result.error("审批失败: " + e.getMessage());
-        }
+    public Result<Void> approve(@PathVariable Integer id, @RequestBody(required = false) java.util.Map<String, Object> requestBody, HttpServletRequest request) {
+        securityContext.requireAdminOrTeacher(request);
+        String comments = requestBody != null ? (String) requestBody.get("comments") : "";
+        approvalService.approve(id, securityContext.currentUserId(request), comments != null ? comments : "");
+        return Result.ok();
     }
 
     @PostMapping(value = "/approvals/{id}/reject", consumes = "application/json")
-    public Result<Void> reject(@PathVariable Integer id, @RequestBody(required = false) java.util.Map<String, Object> requestBody) {
-        System.out.println("=== 收到审批驳回请求 ===");
-        System.out.println("审批ID: " + id);
-        System.out.println("请求体: " + requestBody);
-        System.out.println("请求体类型: " + (requestBody != null ? requestBody.getClass().getName() : "null"));
-        
-        try {
-            String comments = requestBody != null ? (String) requestBody.get("comments") : "";
-            System.out.println("审批意见: " + comments);
-            
-            approvalService.reject(id, comments != null ? comments : "");
-            System.out.println("审批驳回成功");
-            return Result.ok();
-        } catch (Exception e) {
-            System.err.println("审批驳回时发生错误: " + e.getMessage());
-            e.printStackTrace();
-            return Result.error("审批失败: " + e.getMessage());
-        }
+    public Result<Void> reject(@PathVariable Integer id, @RequestBody(required = false) java.util.Map<String, Object> requestBody, HttpServletRequest request) {
+        securityContext.requireAdminOrTeacher(request);
+        String comments = requestBody != null ? (String) requestBody.get("comments") : "";
+        approvalService.reject(id, securityContext.currentUserId(request), comments != null ? comments : "");
+        return Result.ok();
     }
 
     @GetMapping("/approvals/search")
     public Result<PageResult<Approval>> search(
             @RequestParam String keyword,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            HttpServletRequest request) {
+        securityContext.requireAdminOrTeacher(request);
         return Result.ok(PageResult.of(approvalService.search(keyword, page, size), approvalService.searchCount(keyword), page, size));
     }
 
     // 获取我的审批列表
     @GetMapping("/approvals/my")
     public Result<PageResult<Approval>> myApprovals(
-            @RequestParam Integer userId,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            HttpServletRequest request) {
+        Integer userId = securityContext.currentUserId(request);
         return Result.ok(PageResult.of(approvalService.getByApprover(userId, page, size), approvalService.countByApprover(userId), page, size));
     }
 
     // 获取我提交的审批列表
     @GetMapping("/approvals/submitted")
     public Result<PageResult<Approval>> submittedApprovals(
-            @RequestParam Integer userId,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            HttpServletRequest request) {
+        Integer userId = securityContext.currentUserId(request);
         return Result.ok(PageResult.of(approvalService.getByApplicant(userId, page, size), approvalService.countByApplicant(userId), page, size));
-    }
-    
-    // 提交招新申请
-    @PostMapping("/recruitment-applications")
-    public Result<Approval> submitRecruitmentApplication(
-            @RequestParam Integer userId,
-            @RequestParam Integer clubId,
-            @RequestBody String introduction) {
-        return Result.ok(approvalService.submitRecruitmentApplication(userId, clubId, introduction));
-    }
-    
-    // 获取待审批的招新申请数量
-    @GetMapping("/recruitment-applications/pending-count")
-    public Result<Integer> getPendingRecruitmentCount() {
-        return Result.ok(approvalService.countPendingRecruitmentApplications());
     }
 }

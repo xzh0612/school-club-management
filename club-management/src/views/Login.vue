@@ -59,7 +59,7 @@ const router = useRouter()
 
 const roles = [
   { key: 'admin', label: '管理员', icon: '👥' },
-  { key: 'leader', label: '负责人', icon: '🎯' },
+  { key: 'club_leader', label: '负责人', icon: '🎯' },
   { key: 'student', label: '学生', icon: '🎓' },
   { key: 'teacher', label: '老师', icon: '👨‍🏫' },
 ]
@@ -70,9 +70,40 @@ const password = ref('')
 const loading = ref(false)
 
 const rolePlaceholder = computed(() => {
-  const map = { admin: '请输入管理员账号', leader: '请输入学号/工号', student: '请输入学号', teacher: '请输入教师工号' }
+  const map = { admin: '请输入管理员账号', club_leader: '请输入工号/账号', student: '请输入学号', teacher: '请输入教师工号' }
   return map[selectedRole.value]
 })
+
+function normalizeRole(role) {
+  const roleMap = {
+    admin: 'admin',
+    ADMIN: 'admin',
+    '系统管理员': 'admin',
+    teacher: 'teacher',
+    TEACHER: 'teacher',
+    '指导老师': 'teacher',
+    student: 'student',
+    STUDENT: 'student',
+    '普通学生': 'student',
+    leader: 'club_leader',
+    LEADER: 'club_leader',
+    club_leader: 'club_leader',
+    CLUB_LEADER: 'club_leader',
+    '社团负责人': 'club_leader',
+    '社团管理员': 'club_leader'
+  }
+  return roleMap[role] || ''
+}
+
+function getRouteByRole(role) {
+  const routeMap = {
+    admin: '/admin/dashboard',
+    club_leader: '/admin/clubs',
+    teacher: '/admin/approval',
+    student: '/student/square'
+  }
+  return routeMap[role] || '/login'
+}
 
 async function handleLogin() {
   if (!username.value.trim()) {
@@ -93,17 +124,20 @@ async function handleLogin() {
       role: selectedRole.value
     })
     
-    console.log('登录响应:', res)
-    console.log('登录响应 data:', res.data)
-    
     // res.data 就是 LoginVO 对象
-    const token = res.data.token
-    const userData = res.data
+    const token = res.data?.token
+    const userData = res.data || {}
+    const actualRole = normalizeRole(userData.role)
+    const currentRole = actualRole || selectedRole.value
+
+    if (!token) {
+      throw new Error('登录成功，但未获取到 token')
+    }
     
     // 保存 token 和用户信息
     localStorage.setItem('token', token)
     localStorage.setItem('user', JSON.stringify({
-      role: selectedRole.value,
+      role: currentRole,
       name: userData.name || userData.realName,
       avatar: (userData.name || userData.realName)?.charAt(0) || 'U',
       color: userData.avatarColor || '#3B82F6',
@@ -111,17 +145,8 @@ async function handleLogin() {
       id: userData.id || userData.userId
     }))
     
-    console.log('保存的用户信息:', localStorage.getItem('user'))
-    
-    // 根据角色跳转页面
-    const routeMap = {
-      admin: '/admin/dashboard',
-      leader: '/admin/dashboard',
-      teacher: '/admin/dashboard',
-      student: '/student/square'
-    }
-    
-    router.push(routeMap[selectedRole.value] || '/login')
+    const targetPath = getRouteByRole(currentRole)
+    await router.replace(targetPath)
   } catch (error) {
     console.error('登录失败:', error)
     // 错误提示由 request.js 统一处理

@@ -9,7 +9,7 @@ import com.club.mapper.ActivityMapper;
 import com.club.service.StatisticsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import java.time.LocalDateTime;
+import java.time.Year;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,8 +28,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         // 获取总用户数
         stats.setTotalUsers((long) userMapper.countAll());
         
-        // 获取活跃用户数（基于现有用户总数的一个比例）
-        stats.setActiveUsers(Math.round(stats.getTotalUsers() * 0.85));
+        stats.setActiveUsers((long) userMapper.countActiveStudentsInClubs());
         
         // 获取总社团数
         stats.setTotalClubs((long) clubMapper.countAll());
@@ -38,10 +37,10 @@ public class StatisticsServiceImpl implements StatisticsService {
         stats.setTotalActivities((long) activityMapper.countAll());
         stats.setCompletedActivities((long) activityMapper.countByStatus("completed"));
         
-        // 计算社团活跃率（基于现有数据模拟）
-        int activeClubs = Math.round(stats.getTotalClubs().intValue() * 0.875f);
-        double clubActivityRate = stats.getTotalClubs() > 0 ? 
-            (double) activeClubs / stats.getTotalClubs() * 100 : 0;
+        int approvedClubs = clubMapper.countByStatus("approved");
+        int activeClubs = activityMapper.countClubsWithApprovedActivities();
+        double clubActivityRate = approvedClubs > 0 ?
+            (double) activeClubs / approvedClubs * 100 : 0;
         stats.setClubActivityRate(Math.round(clubActivityRate * 10) / 10.0);
         
         // 计算活动完成率
@@ -49,9 +48,9 @@ public class StatisticsServiceImpl implements StatisticsService {
             (double) stats.getCompletedActivities() / stats.getTotalActivities() * 100 : 0;
         stats.setActivityCompletionRate(Math.round(activityCompletionRate * 10) / 10.0);
         
-        // 计算学生参与率（假设每个活动平均参与人数为社团成员的30%）
-        double participationRate = stats.getActiveUsers() > 0 ? 
-            Math.min(100.0, (double) stats.getActiveUsers() / stats.getTotalUsers() * 100) : 0;
+        int totalStudents = userMapper.countByRole("student");
+        double participationRate = totalStudents > 0 ?
+            Math.min(100.0, (double) stats.getActiveUsers() / totalStudents * 100) : 0;
         stats.setStudentParticipationRate(Math.round(participationRate * 10) / 10.0);
         
         return stats;
@@ -60,18 +59,23 @@ public class StatisticsServiceImpl implements StatisticsService {
     @Override
     public List<GrowthData> getClubGrowthTrend() {
         List<GrowthData> growthData = new ArrayList<>();
-        
-        // 模拟几年的数据
-        int[] counts = {28, 35, 42, 48};
-        String[] years = {"2022", "2023", "2024", "2025"};
-        int[] percentages = {45, 58, 72, 88};
-        
-        for (int i = 0; i < years.length; i++) {
+        List<java.util.Map<String, Object>> rows = clubMapper.countCreatedByYear();
+
+        int total = rows.stream()
+                .mapToInt(row -> ((Number) row.get("count")).intValue())
+                .sum();
+        int cumulative = 0;
+        int currentYear = Year.now().getValue();
+
+        for (java.util.Map<String, Object> row : rows) {
+            int year = ((Number) row.get("year")).intValue();
+            cumulative += ((Number) row.get("count")).intValue();
             GrowthData data = new GrowthData();
-            data.setYear(years[i]);
-            data.setCount(counts[i]);
-            data.setPercentage(percentages[i] + "%");
-            data.setCurrent(i == years.length - 1); // 最后一年设为当前年份
+            data.setYear(String.valueOf(year));
+            data.setCount(cumulative);
+            int pct = total > 0 ? (int) Math.round((cumulative * 100.0) / total) : 0;
+            data.setPercentage(pct + "%");
+            data.setCurrent(year == currentYear);
             growthData.add(data);
         }
         
@@ -82,21 +86,16 @@ public class StatisticsServiceImpl implements StatisticsService {
     public List<ClubRanking> getClubRankings() {
         List<ClubRanking> rankings = new ArrayList<>();
         
-        // 模拟排行榜数据
-        String[] names = {"计算机协会", "志愿者协会", "文学社", "篮球社", "摄影社"};
-        int[] events = {24, 31, 18, 15, 12};
-        int[] members = {156, 312, 127, 203, 89};
-        String[] activities = {"98%", "95%", "92%", "88%", "85%"};
-        String[] stars = {"⭐⭐⭐⭐⭐", "⭐⭐⭐⭐⭐", "⭐⭐⭐⭐⭐", "⭐⭐⭐⭐", "⭐⭐⭐⭐"};
-        
-        for (int i = 0; i < names.length; i++) {
+        List<java.util.Map<String, Object>> rows = activityMapper.clubRankingStats();
+        for (int i = 0; i < rows.size(); i++) {
+            java.util.Map<String, Object> row = rows.get(i);
+            int events = ((Number) row.get("activity_count")).intValue();
+            int members = ((Number) row.get("member_count")).intValue();
             ClubRanking ranking = new ClubRanking();
             ranking.setRank(i + 1);
-            ranking.setName(names[i]);
-            ranking.setEvents(events[i]);
-            ranking.setMembers(members[i]);
-            ranking.setActivity(activities[i]);
-            ranking.setStars(stars[i]);
+            ranking.setName((String) row.get("club_name"));
+            ranking.setEvents(events);
+            ranking.setMembers(members);
             rankings.add(ranking);
         }
         

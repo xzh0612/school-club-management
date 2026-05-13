@@ -21,7 +21,12 @@ public class UserServiceImpl implements UserService {
     public LoginVO login(LoginDTO dto) {
         User user = userMapper.findByUsername(dto.getUsername());
         if (user == null) throw new RuntimeException("用户不存在");
+        if ("inactive".equals(user.getStatus())) throw new RuntimeException("该账号已被停用");
+        if (dto.getRole() != null && !dto.getRole().isBlank() && !dto.getRole().equals(user.getRole())) {
+            throw new RuntimeException("所选登录身份与账号角色不匹配");
+        }
         if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) throw new RuntimeException("密码错误");
+        userMapper.updateLastLoginTime(user.getUserId());
 
         LoginVO vo = new LoginVO();
         vo.setId(user.getUserId().longValue());
@@ -45,9 +50,26 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public List<User> listByClub(Integer clubId, int page, int size) {
+        if (clubId == null) {
+            return List.of();
+        }
+        int offset = (page - 1) * size;
+        return userMapper.findByClubId(clubId, offset, size);
+    }
+
+    @Override
     public int count(String role) {
         if (role != null && !role.isEmpty()) return userMapper.countByRole(role);
         return userMapper.countAll();
+    }
+
+    @Override
+    public int countByClub(Integer clubId) {
+        if (clubId == null) {
+            return 0;
+        }
+        return userMapper.countByClubId(clubId);
     }
 
     @Override
@@ -77,5 +99,15 @@ public class UserServiceImpl implements UserService {
     @Override
     public int searchCount(String keyword) {
         return userMapper.searchCount(keyword);
+    }
+
+    @Override
+    public List<java.util.Map<String, Object>> getUserClubs(Integer userId) {
+        return userMapper.findUserClubs(userId);
+    }
+
+    @Override
+    public List<java.util.Map<String, Object>> getUserActivities(Integer userId) {
+        return userMapper.findUserActivities(userId);
     }
 }

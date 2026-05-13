@@ -76,6 +76,38 @@ export function getClubMembers(clubId, page = 1, size = 10) {
 }
 
 /**
+ * 添加社团成员
+ */
+export function addClubMember(clubId, data) {
+  return request({
+    url: `/clubs/${clubId}/members`,
+    method: 'post',
+    data
+  })
+}
+
+/**
+ * 更新社团成员身份或状态
+ */
+export function updateClubMember(clubId, userId, data) {
+  return request({
+    url: `/clubs/${clubId}/members/${userId}`,
+    method: 'put',
+    data
+  })
+}
+
+/**
+ * 移除社团成员
+ */
+export function removeClubMember(clubId, userId) {
+  return request({
+    url: `/clubs/${clubId}/members/${userId}`,
+    method: 'delete'
+  })
+}
+
+/**
  * 获取社团活动
  */
 export function getClubActivities(clubId, page = 1, size = 10) {

@@ -48,13 +48,55 @@ const router = createRouter({
   routes,
 })
 
+function normalizeRole(role) {
+  const roleMap = {
+    admin: 'admin',
+    ADMIN: 'admin',
+    '系统管理员': 'admin',
+    teacher: 'teacher',
+    TEACHER: 'teacher',
+    '指导老师': 'teacher',
+    student: 'student',
+    STUDENT: 'student',
+    '普通学生': 'student',
+    leader: 'club_leader',
+    LEADER: 'club_leader',
+    club_leader: 'club_leader',
+    CLUB_LEADER: 'club_leader',
+    '社团负责人': 'club_leader',
+    '社团管理员': 'club_leader'
+  }
+  return roleMap[role] || ''
+}
+
+const routePermissions = {
+  '/admin/dashboard': ['admin', 'club_leader', 'teacher'],
+  '/admin/users': ['admin'],
+  '/admin/roles': ['admin'],
+  '/admin/clubs': ['admin', 'club_leader', 'teacher'],
+  '/admin/approval': ['admin', 'teacher'],
+  '/admin/activities': ['club_leader'],
+  '/admin/recruitment': ['club_leader'],
+  '/admin/announcements': ['admin', 'club_leader'],
+  '/admin/logs': ['admin'],
+  '/admin/statistics': ['admin', 'teacher'],
+}
+
+function fallbackRoute(role) {
+  const map = {
+    admin: '/admin/dashboard',
+    club_leader: '/admin/clubs',
+    teacher: '/admin/approval',
+    student: '/student/square'
+  }
+  return map[role] || '/login'
+}
+
 // Navigation guard
 router.beforeEach((to, from, next) => {
   document.title = `${to.meta.title || '社团管理系统'} - 学校社团管理系统`
   const user = JSON.parse(localStorage.getItem('user') || 'null')
-  
-  console.log('路由守卫 - 目标路径:', to.path)
-  console.log('路由守卫 - 用户信息:', user)
+  const normalizedRole = normalizeRole(user?.role)
   
   // 检查是否是公共路径（登录页）
   if (to.meta.public) {
@@ -64,30 +106,31 @@ router.beforeEach((to, from, next) => {
   
   // 未登录，跳转到登录页
   if (!user) {
-    console.log('未登录，跳转到登录页')
-    next('/login')
+    next({ path: '/login', replace: true })
     return
   }
   
   // 检查管理员路径权限
   if (to.path.startsWith('/admin')) {
-    if (user.role !== 'admin' && user.role !== 'leader' && user.role !== 'teacher') {
-      console.log('无管理员权限，跳转到学生页面')
-      next('/student/square')
+    if (normalizedRole !== 'admin' && normalizedRole !== 'club_leader' && normalizedRole !== 'teacher') {
+      next({ path: '/student/square', replace: true })
+      return
+    }
+    const allowedRoles = routePermissions[to.path]
+    if (allowedRoles && !allowedRoles.includes(normalizedRole)) {
+      next({ path: fallbackRoute(normalizedRole), replace: true })
       return
     }
   }
   
   // 检查学生路径权限
   if (to.path.startsWith('/student')) {
-    if (user.role !== 'student') {
-      console.log('无学生权限，跳转到管理员页面')
-      next('/admin/dashboard')
+    if (normalizedRole !== 'student') {
+      next({ path: '/admin/dashboard', replace: true })
       return
     }
   }
   
-  console.log('允许访问')
   next()
 })
 

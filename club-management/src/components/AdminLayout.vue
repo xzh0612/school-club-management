@@ -7,45 +7,17 @@
         <span>社团管理系统</span>
       </div>
       <nav>
-        <div class="nav-group">概览</div>
-        <router-link to="/admin/dashboard" :class="{ active: isActive('/admin/dashboard') }">
-          <span class="nav-icon">📊</span> 首页仪表盘
-        </router-link>
-
-        <div class="nav-group">系统管理</div>
-        <router-link to="/admin/users" :class="{ active: isActive('/admin/users') }">
-          <span class="nav-icon">👤</span> 用户管理
-        </router-link>
-        <router-link to="/admin/roles" :class="{ active: isActive('/admin/roles') }">
-          <span class="nav-icon">🔐</span> 权限配置
-        </router-link>
-        <router-link to="/admin/logs" :class="{ active: isActive('/admin/logs') }">
-          <span class="nav-icon">📝</span> 操作日志
-        </router-link>
-
-        <div class="nav-group">审批管理</div>
-        <router-link to="/admin/approval" :class="{ active: isActive('/admin/approval') }">
-          <span class="nav-icon">✅</span> 审批中心
-        </router-link>
-        <router-link to="/admin/recruitment" :class="{ active: isActive('/admin/recruitment') }">
-          <span class="nav-icon">👥</span> 招新管理
-        </router-link>
-
-        <div class="nav-group">社团管理</div>
-        <router-link to="/admin/clubs" :class="{ active: isActive('/admin/clubs') }">
-          <span class="nav-icon">🏛️</span> 社团管理
-        </router-link>
-        <router-link to="/admin/activities" :class="{ active: isActive('/admin/activities') }">
-          <span class="nav-icon">🎉</span> 活动管理
-        </router-link>
-
-        <div class="nav-group">其他</div>
-        <router-link to="/admin/announcements" :class="{ active: isActive('/admin/announcements') }">
-          <span class="nav-icon">📢</span> 公告资讯
-        </router-link>
-        <router-link to="/admin/statistics" :class="{ active: isActive('/admin/statistics') }">
-          <span class="nav-icon">⚙️</span> 数据统计
-        </router-link>
+        <template v-for="group in visibleNavGroups" :key="group.name">
+          <div class="nav-group">{{ group.name }}</div>
+          <router-link
+            v-for="item in group.items"
+            :key="item.path"
+            :to="item.path"
+            :class="{ active: isActive(item.path) }"
+          >
+            <span class="nav-icon">{{ item.icon }}</span> {{ item.label }}
+          </router-link>
+        </template>
       </nav>
     </aside>
 
@@ -80,8 +52,56 @@ import { useRouter, useRoute } from 'vue-router'
 const router = useRouter()
 const route = useRoute()
 const user = computed(() => JSON.parse(localStorage.getItem('user') || '{}'))
+const currentRole = computed(() => user.value.role || '')
 
 const currentTitle = computed(() => route.meta.title || '')
+
+const navGroups = [
+  {
+    name: '概览',
+    items: [
+      { path: '/admin/dashboard', icon: '📊', label: '首页仪表盘', roles: ['admin', 'club_leader', 'teacher'] }
+    ]
+  },
+  {
+    name: '系统管理',
+    items: [
+      { path: '/admin/users', icon: '👤', label: '用户管理', roles: ['admin'] },
+      { path: '/admin/roles', icon: '🔐', label: '权限配置', roles: ['admin'] },
+      { path: '/admin/logs', icon: '📝', label: '操作日志', roles: ['admin'] }
+    ]
+  },
+  {
+    name: '审批管理',
+    items: [
+      { path: '/admin/approval', icon: '✅', label: '审批中心', roles: ['admin', 'teacher'] },
+      { path: '/admin/recruitment', icon: '👥', label: '招新管理', roles: ['club_leader'] }
+    ]
+  },
+  {
+    name: '社团管理',
+    items: [
+      { path: '/admin/clubs', icon: '🏛️', label: '社团管理', roles: ['admin', 'club_leader', 'teacher'] },
+      { path: '/admin/activities', icon: '🎉', label: '活动管理', roles: ['club_leader'] }
+    ]
+  },
+  {
+    name: '其他',
+    items: [
+      { path: '/admin/announcements', icon: '📢', label: '公告资讯', roles: ['admin', 'club_leader'] },
+      { path: '/admin/statistics', icon: '⚙️', label: '数据统计', roles: ['admin', 'teacher'] }
+    ]
+  }
+]
+
+const visibleNavGroups = computed(() => {
+  return navGroups
+    .map(group => ({
+      ...group,
+      items: group.items.filter(item => item.roles.includes(currentRole.value))
+    }))
+    .filter(group => group.items.length > 0)
+})
 
 function isActive(path) {
   return route.path === path

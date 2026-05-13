@@ -42,7 +42,6 @@
     <div class="roles-section card">
       <div class="section-header">
         <h3>角色列表</h3>
-        <el-button type="primary" @click="showRoleDialog()">新建角色</el-button>
       </div>
 
       <el-table :data="roleList" stripe style="width: 100%" v-loading="loading">
@@ -61,22 +60,10 @@
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="scope">
-            <el-switch
-              v-model="scope.row.status"
-              :active-value="1"
-              :inactive-value="0"
-              @change="toggleRoleStatus(scope.row)"
-            />
+            <el-tag type="success">{{ scope.row.status === 1 ? '启用' : '停用' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180"></el-table-column>
-        <el-table-column label="操作" width="200">
-          <template #default="scope">
-            <el-button size="small" @click="editRole(scope.row)">编辑</el-button>
-            <el-button size="small" @click="configurePermissions(scope.row)">权限</el-button>
-            <el-button size="small" type="danger" @click="deleteRole(scope.row)">删除</el-button>
-          </template>
-        </el-table-column>
       </el-table>
     </div>
 
@@ -86,10 +73,8 @@
       <div class="permission-tree">
         <el-tree
           :data="permissionTree"
-          show-checkbox
           node-key="id"
           :default-expanded-keys="expandedKeys"
-          :default-checked-keys="checkedKeys"
           :props="defaultProps"
         >
           <template #default="{ node, data }">
@@ -147,7 +132,8 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { getUserList } from '../../api/user'
 
 // 数据状态
 const loading = ref(false)
@@ -159,10 +145,10 @@ const rolePermissions = ref({})
 
 // 统计数据
 const roleStats = reactive({
-  total: 6,
-  active: 5,
-  disabled: 1,
-  permissions: 24
+  total: 4,
+  active: 4,
+  disabled: 0,
+  permissions: 0
 })
 
 // 权限树数据
@@ -216,6 +202,10 @@ const defaultProps = {
 const expandedKeys = ref([1, 2, 3, 4])
 const checkedKeys = ref([])
 
+const countPermissionNodes = (nodes) => nodes.reduce((total, item) => {
+  return total + 1 + (item.children ? countPermissionNodes(item.children) : 0)
+}, 0)
+
 // 计算属性
 const dialogTitle = computed(() => {
   return currentRole.value.id ? '编辑角色' : '新建角色'
@@ -225,15 +215,20 @@ const dialogTitle = computed(() => {
 const getRoleList = async () => {
   loading.value = true
   try {
-    // 模拟数据
-    roleList.value = [
-      { id: 1, name: '系统管理员', code: 'ADMIN', description: '拥有系统最高权限', userCount: 1, status: 1, createTime: '2026-01-01 00:00:00' },
-      { id: 2, name: '社团管理员', code: 'CLUB_ADMIN', description: '负责社团日常管理', userCount: 3, status: 1, createTime: '2026-01-02 00:00:00' },
-      { id: 3, name: '指导老师', code: 'TEACHER', description: '社团指导老师', userCount: 5, status: 1, createTime: '2026-01-03 00:00:00' },
-      { id: 4, name: '社团负责人', code: 'CLUB_LEADER', description: '社团负责人', userCount: 12, status: 1, createTime: '2026-01-04 00:00:00' },
-      { id: 5, name: '普通学生', code: 'STUDENT', description: '普通学生用户', userCount: 156, status: 1, createTime: '2026-01-05 00:00:00' },
-      { id: 6, name: '已禁用角色', code: 'DISABLED_ROLE', description: '测试禁用角色', userCount: 0, status: 0, createTime: '2026-01-06 00:00:00' }
+    const roles = [
+      { id: 1, role: 'admin', name: '系统管理员', code: 'ADMIN', description: '维护平台账号、全校社团和全局配置' },
+      { id: 2, role: 'teacher', name: '指导老师', code: 'TEACHER', description: '审核和监管所指导社团' },
+      { id: 3, role: 'club_leader', name: '社团负责人', code: 'CLUB_LEADER', description: '管理本社团成员、活动、招新和公告' },
+      { id: 4, role: 'student', name: '普通学生', code: 'STUDENT', description: '浏览社团、报名活动、提交入社申请' }
     ]
+    const counts = await Promise.all(roles.map(item => getUserList(1, 1, item.role).then(res => res.data.total || 0).catch(() => 0)))
+    roleList.value = roles.map((item, index) => ({
+      ...item,
+      userCount: counts[index],
+      status: 1,
+      createTime: '系统内置'
+    }))
+    roleStats.permissions = countPermissionNodes(permissionTree.value)
   } catch (error) {
     ElMessage.error('获取角色列表失败')
   } finally {
@@ -254,27 +249,19 @@ const editRole = (role) => {
 
 // 保存角色
 const saveRole = () => {
-  ElMessage.success('角色保存成功')
+  ElMessage.info('当前角色为系统内置角色，请在代码和权限规则中维护')
   roleDialogVisible.value = false
   getRoleList()
 }
 
 // 切换角色状态
 const toggleRoleStatus = (role) => {
-  ElMessage.success(`角色${role.status === 1 ? '启用' : '禁用'}成功`)
+  ElMessage.info('当前角色状态来自系统内置规则，不能在页面直接切换')
 }
 
 // 删除角色
 const deleteRole = async (role) => {
-  try {
-    await ElMessageBox.confirm(`确定要删除角色 "${role.name}" 吗？`, '提示', {
-      type: 'warning'
-    })
-    ElMessage.success('角色删除成功')
-    getRoleList()
-  } catch (error) {
-    // 用户取消删除
-  }
+  ElMessage.info(`内置角色 "${role.name}" 不能删除`)
 }
 
 // 配置权限
@@ -291,7 +278,7 @@ const saveRolePermissions = () => {
     ...checkedNodes.map(node => node.id),
     ...halfCheckedNodes.map(node => node.id)
   ]
-  ElMessage.success('权限配置保存成功')
+  ElMessage.info('权限树仅展示当前系统规则，实际权限由后端 SecurityContext 和路由配置控制')
   permissionDialogVisible.value = false
 }
 

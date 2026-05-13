@@ -145,7 +145,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, watch, onMounted } from 'vue'
+import { getClubList } from '../api/club'
 
 const props = defineProps({
   isEdit: {
@@ -160,17 +161,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'submit'])
 
-// 模拟社团数据
-const clubs = ref([
-  { id: 1, name: '计算机协会' },
-  { id: 2, name: '摄影社' },
-  { id: 3, name: '篮球社' },
-  { id: 4, name: '文学社' },
-  { id: 5, name: '辩论社' },
-  { id: 6, name: '音乐社' },
-  { id: 7, name: '舞蹈社' },
-  { id: 8, name: '志愿者协会' }
-])
+const clubs = ref([])
 
 const loading = ref(false)
 
@@ -240,14 +231,10 @@ const handleSubmit = async () => {
   loading.value = true
   
   try {
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
     const submitData = {
       ...formData,
       clubName: clubs.value.find(c => c.id === formData.clubId)?.name,
-      status: new Date(formData.startTime) > new Date() ? '即将开始' : 
-              new Date(formData.endTime) < new Date() ? '已结束' : '进行中'
+      status: props.isEdit && props.initialData.status ? props.initialData.status : 'pending_approval'
     }
     
     emit('submit', submitData)
@@ -258,6 +245,14 @@ const handleSubmit = async () => {
     loading.value = false
   }
 }
+
+const loadClubs = async () => {
+  const response = await getClubList(1, 100, 'approved', '')
+  const records = response.data?.records || []
+  clubs.value = records.map(club => ({ id: club.clubId, name: club.clubName }))
+}
+
+onMounted(loadClubs)
 
 const handleOverlayClick = () => {
   if (!loading.value) {

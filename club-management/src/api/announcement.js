@@ -52,3 +52,18 @@ export function deleteAnnouncement(id) {
     method: 'delete'
   })
 }
+
+export function publishAnnouncement(id) {
+  return request({
+    url: `/announcements/${id}/publish`,
+    method: 'put'
+  })
+}
+
+export function setAnnouncementTop(id, isTop) {
+  return request({
+    url: `/announcements/${id}/top`,
+    method: 'put',
+    params: { isTop }
+  })
+}

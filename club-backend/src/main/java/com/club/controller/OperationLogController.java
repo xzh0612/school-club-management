@@ -1,8 +1,10 @@
 package com.club.controller;
 
 import com.club.common.Result;
+import com.club.common.SecurityContext;
 import com.club.entity.OperationLog;
 import com.club.service.OperationLogService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 public class OperationLogController {
     
     private final OperationLogService operationLogService;
+    private final SecurityContext securityContext;
     
     @GetMapping
     public Result<?> list(
@@ -19,7 +22,9 @@ public class OperationLogController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String module,
             @RequestParam(required = false) String operator,
-            @RequestParam(required = false) String status) {
+            @RequestParam(required = false) String status,
+            HttpServletRequest request) {
+        securityContext.requireAdmin(request);
         if (module != null || operator != null || status != null) {
             return Result.ok(operationLogService.search(module, operator, status, page, size));
         }
@@ -27,12 +32,14 @@ public class OperationLogController {
     }
     
     @GetMapping("/{id}")
-    public Result<OperationLog> getById(@PathVariable Integer id) {
+    public Result<OperationLog> getById(@PathVariable Integer id, HttpServletRequest request) {
+        securityContext.requireAdmin(request);
         return Result.ok(operationLogService.getById(id));
     }
     
     @PostMapping
-    public Result<OperationLog> create(@RequestBody OperationLog log) {
+    public Result<OperationLog> create(@RequestBody OperationLog log, HttpServletRequest request) {
+        securityContext.requireAdmin(request);
         return Result.ok(operationLogService.create(log));
     }
 }

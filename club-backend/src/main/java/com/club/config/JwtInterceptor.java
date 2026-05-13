@@ -17,14 +17,14 @@ public class JwtInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         String header = request.getHeader("Authorization");
-        if (header == null || !header.startsWith("Bearer ")) {
+        if (header == null || header.isBlank()) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write("{\"code\":401,\"msg\":\"未登录或token缺失\",\"data\":null}");
             return false;
         }
 
-        String token = header.substring(7);
+        String token = header.startsWith("Bearer ") ? header.substring(7) : header;
         try {
             Claims claims = jwtUtil.parseToken(token);
             request.setAttribute("userId", Long.parseLong(claims.getSubject()));

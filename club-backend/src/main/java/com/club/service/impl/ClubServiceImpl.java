@@ -12,11 +12,16 @@ import java.util.List;
 public class ClubServiceImpl implements ClubService {
 
     private final ClubMapper clubMapper;
+    private final ActivityMapper activityMapper;
+    private final UserMapper userMapper;
 
     @Override
     public List<Club> list(String status, String keyword, int page, int size) {
         int offset = (page - 1) * size;
         if (keyword != null && !keyword.isEmpty()) {
+            if (status != null && !status.isEmpty()) {
+                return clubMapper.searchByStatus(keyword, status, offset, size);
+            }
             return clubMapper.search(keyword, offset, size);
         }
         if (status != null && !status.isEmpty()) {
@@ -26,11 +31,28 @@ public class ClubServiceImpl implements ClubService {
     }
 
     @Override
-    public int count(String keyword) {
+    public List<Club> listManageable(Integer userId, Integer clubId, int page, int size) {
+        int offset = (page - 1) * size;
+        return clubMapper.findManageable(userId, clubId, offset, size);
+    }
+
+    @Override
+    public int count(String status, String keyword) {
         if (keyword != null && !keyword.isEmpty()) {
+            if (status != null && !status.isEmpty()) {
+                return clubMapper.searchCountByStatus(keyword, status);
+            }
             return clubMapper.searchCount(keyword);
         }
+        if (status != null && !status.isEmpty()) {
+            return clubMapper.countByStatus(status);
+        }
         return clubMapper.countAll();
+    }
+
+    @Override
+    public int countManageable(Integer userId, Integer clubId) {
+        return clubMapper.countManageable(userId, clubId);
     }
 
     @Override
@@ -40,6 +62,9 @@ public class ClubServiceImpl implements ClubService {
 
     @Override
     public Club create(Club club) {
+        if (club.getClubType() == null || club.getClubType().isBlank()) {
+            club.setClubType("general");
+        }
         clubMapper.insert(club);
         return club;
     }
@@ -67,26 +92,55 @@ public class ClubServiceImpl implements ClubService {
     }
 
     @Override
+    public List<Club> searchByStatus(String keyword, String status, int page, int size) {
+        int offset = (page - 1) * size;
+        return clubMapper.searchByStatus(keyword, status, offset, size);
+    }
+
+    @Override
+    public int searchCountByStatus(String keyword, String status) {
+        return clubMapper.searchCountByStatus(keyword, status);
+    }
+
+    @Override
+    public List<Club> searchManageable(String keyword, Integer userId, Integer clubId, int page, int size) {
+        int offset = (page - 1) * size;
+        return clubMapper.searchManageable(keyword, userId, clubId, offset, size);
+    }
+
+    @Override
+    public int searchManageableCount(String keyword, Integer userId, Integer clubId) {
+        return clubMapper.searchManageableCount(keyword, userId, clubId);
+    }
+
+    @Override
     public List<User> getMembers(Long clubId, int page, int size) {
-        // TODO: 实现获取社团成员
+        // 社团成员查询由 UserService.listByClub 承担，保留接口避免破坏旧调用。
         return List.of();
     }
 
     @Override
     public int getMemberCount(Long clubId) {
-        // TODO: 实现获取社团成员数量
-        return 0;
+        if (clubId == null) {
+            return 0;
+        }
+        return userMapper.countByClubId(clubId.intValue());
     }
 
     @Override
-    public List<Activity> getActivities(Long clubId, int page, int size) {
-        // TODO: 实现获取社团活动
-        return List.of();
+    public List<Activity> getActivities(Long clubId, String status, int page, int size) {
+        int offset = (page - 1) * size;
+        if (status != null && !status.isEmpty()) {
+            return activityMapper.findByClubIdAndStatus(clubId.intValue(), status, offset, size);
+        }
+        return activityMapper.findByClubId(clubId.intValue(), offset, size);
     }
 
     @Override
-    public int getActivityCount(Long clubId) {
-        // TODO: 实现获取社团活动数量
-        return 0;
+    public int getActivityCount(Long clubId, String status) {
+        if (status != null && !status.isEmpty()) {
+            return activityMapper.countByClubIdAndStatus(clubId.intValue(), status);
+        }
+        return activityMapper.countByClubId(clubId.intValue());
     }
 }

@@ -23,6 +23,7 @@ public class User {
     private String phone;          // 电话
     private LocalDateTime createTime;  // 创建时间
     private LocalDateTime updateTime;  // 更新时间
+    private String clubName;       // 所属社团名称
     
     // 为了兼容前端，提供id属性
     public Integer getId() {

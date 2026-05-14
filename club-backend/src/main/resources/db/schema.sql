@@ -3,10 +3,10 @@
 -- Aligned with current backend mappers
 -- ==========================================
 
-CREATE DATABASE IF NOT EXISTS club_management
+CREATE DATABASE IF NOT EXISTS `School-Club-Management-System`
   DEFAULT CHARSET utf8mb4
   COLLATE utf8mb4_unicode_ci;
-USE club_management;
+USE `School-Club-Management-System`;
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;

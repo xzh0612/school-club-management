@@ -72,12 +72,21 @@ public class RecruitmentPlanServiceImpl implements RecruitmentPlanService {
         if (plan.getQuota() == null || plan.getQuota() <= 0) {
             throw new RuntimeException("招新人数必须大于0");
         }
+        if (plan.getStartDate() == null || plan.getEndDate() == null) {
+            throw new RuntimeException("招新开始和结束日期不能为空");
+        }
         if (plan.getStartDate() != null && plan.getEndDate() != null && plan.getStartDate().isAfter(plan.getEndDate())) {
             throw new RuntimeException("招新开始时间不能晚于截止时间");
         }
         plan.setStatus(plan.getStatus() == null || plan.getStatus().isBlank() ? "active" : plan.getStatus().trim());
         if (!STATUSES.contains(plan.getStatus())) {
             throw new RuntimeException("招新状态不合法：" + plan.getStatus());
+        }
+        if (plan.getRequirements() != null && plan.getRequirements().length() > 2000) {
+            throw new RuntimeException("招新要求不能超过2000字");
+        }
+        if (plan.getDescription() != null && plan.getDescription().length() > 5000) {
+            throw new RuntimeException("招新说明不能超过5000字");
         }
         plan.setTitle(plan.getTitle().trim());
     }

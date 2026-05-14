@@ -17,6 +17,7 @@ public class ActivityServiceImpl implements ActivityService {
 
     private final ActivityMapper activityMapper;
     private final ActivitySignupMapper activitySignupMapper;
+    private final ActivityChangeRequestMapper activityChangeRequestMapper;
 
     @Override
     public List<Activity> list(String status, Long clubId, int page, int size) {
@@ -82,6 +83,30 @@ public class ActivityServiceImpl implements ActivityService {
         validate(activity);
         activityMapper.update(activity);
         return activity;
+    }
+
+    @Override
+    public ActivityChangeRequest submitChangeRequest(Activity activity, Integer requesterId) {
+        validate(activity);
+        if (activityChangeRequestMapper.findPendingByActivityId(activity.getActivityId()) != null) {
+            throw new RuntimeException("该活动已有待审批变更，不能重复提交");
+        }
+        ActivityChangeRequest changeRequest = new ActivityChangeRequest();
+        changeRequest.setActivityId(activity.getActivityId());
+        changeRequest.setRequesterId(requesterId);
+        changeRequest.setTitle(activity.getTitle());
+        changeRequest.setContent(activity.getContent());
+        changeRequest.setType(activity.getType());
+        changeRequest.setMaxParticipants(activity.getMaxParticipants());
+        changeRequest.setRegistrationDeadline(activity.getRegistrationDeadline());
+        changeRequest.setOrganizer(activity.getOrganizer());
+        changeRequest.setContact(activity.getContact());
+        changeRequest.setStartTime(activity.getStartTime());
+        changeRequest.setEndTime(activity.getEndTime());
+        changeRequest.setLocation(activity.getLocation());
+        changeRequest.setStatus("pending");
+        activityChangeRequestMapper.insert(changeRequest);
+        return changeRequest;
     }
 
     @Override
@@ -161,6 +186,39 @@ public class ActivityServiceImpl implements ActivityService {
     @Override
     public void cancelSignup(Integer activityId, Integer userId) {
         activitySignupMapper.deleteByActivityAndUser(activityId, userId);
+    }
+
+    @Override
+    public void approveSignup(Integer activityId, Integer signupId) {
+        transitionSignup(activityId, signupId, "approved");
+    }
+
+    @Override
+    public void rejectSignup(Integer activityId, Integer signupId) {
+        transitionSignup(activityId, signupId, "rejected");
+    }
+
+    @Override
+    public void checkinSignup(Integer activityId, Integer signupId) {
+        ActivitySignup signup = activitySignupMapper.findByIdForActivity(activityId, signupId);
+        if (signup == null) {
+            throw new RuntimeException("报名记录不存在");
+        }
+        if (!"approved".equals(signup.getStatus())) {
+            throw new RuntimeException("只有已通过报名可以签到");
+        }
+        activitySignupMapper.updateStatus(activityId, signupId, "attended");
+    }
+
+    private void transitionSignup(Integer activityId, Integer signupId, String status) {
+        ActivitySignup signup = activitySignupMapper.findByIdForActivity(activityId, signupId);
+        if (signup == null) {
+            throw new RuntimeException("报名记录不存在");
+        }
+        if (!"pending".equals(signup.getStatus())) {
+            throw new RuntimeException("只有待审核报名可以审批");
+        }
+        activitySignupMapper.updateStatus(activityId, signupId, status);
     }
 
     @Override

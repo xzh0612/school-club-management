@@ -26,6 +26,27 @@ public interface ClubMapper {
             "FROM clubs c " +
             "LEFT JOIN users u ON c.founder_id = u.user_id " +
             "LEFT JOIN users t ON c.advisor_id = t.user_id " +
+            "WHERE 1 = 1 " +
+            "<if test='status != null'>AND c.status = #{status} </if>" +
+            "<if test='keyword != null'>AND c.club_name LIKE CONCAT('%',#{keyword},'%') </if>" +
+            "<if test='clubType != null'>AND c.club_type = #{clubType} </if>" +
+            "ORDER BY c.create_time DESC, c.club_id DESC LIMIT #{offset}, #{limit}" +
+            "</script>")
+    List<Club> findByFilters(@Param("status") String status, @Param("keyword") String keyword, @Param("clubType") String clubType, @Param("offset") int offset, @Param("limit") int limit);
+
+    @Select("<script>" +
+            "SELECT COUNT(*) FROM clubs c WHERE 1 = 1 " +
+            "<if test='status != null'>AND c.status = #{status} </if>" +
+            "<if test='keyword != null'>AND c.club_name LIKE CONCAT('%',#{keyword},'%') </if>" +
+            "<if test='clubType != null'>AND c.club_type = #{clubType} </if>" +
+            "</script>")
+    int countByFilters(@Param("status") String status, @Param("keyword") String keyword, @Param("clubType") String clubType);
+
+    @Select("<script>" +
+            "SELECT c.*, u.real_name as founder_name, t.real_name as advisor_name " +
+            "FROM clubs c " +
+            "LEFT JOIN users u ON c.founder_id = u.user_id " +
+            "LEFT JOIN users t ON c.advisor_id = t.user_id " +
             "WHERE (" +
             "<if test='includeAdvisor'>c.advisor_id = #{userId} OR </if>" +
             "c.club_id = #{clubId} " +

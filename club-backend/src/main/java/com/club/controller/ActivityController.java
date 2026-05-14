@@ -2,8 +2,11 @@ package com.club.controller;
 
 import com.club.common.*;
 import com.club.entity.*;
+import com.club.dto.ActivityRequest;
+import com.club.dto.SignupStatusRequest;
 import com.club.service.*;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -54,10 +57,8 @@ public class ActivityController {
 
     @PostMapping("/activities")
     @Transactional
-    public Result<Activity> create(@RequestBody Activity activity, HttpServletRequest request) {
-        if (activity.getClubId() == null) {
-            throw new RuntimeException("活动必须指定所属社团");
-        }
+    public Result<Activity> create(@Valid @RequestBody ActivityRequest requestBody, HttpServletRequest request) {
+        Activity activity = requestBody.toActivity();
         Club club = clubService.getById(activity.getClubId().longValue());
         requireLeaderForClub(request, club);
         activity.setStatus("pending_approval");
@@ -78,7 +79,8 @@ public class ActivityController {
 
     @PutMapping("/activities/{id}")
     @Transactional
-    public Result<Activity> update(@PathVariable Integer id, @RequestBody Activity activity, HttpServletRequest request) {
+    public Result<Activity> update(@PathVariable Integer id, @Valid @RequestBody ActivityRequest requestBody, HttpServletRequest request) {
+        Activity activity = requestBody.toActivity();
         Activity existing = activityService.getById(id);
         if (existing == null) {
             throw new RuntimeException("活动不存在");
@@ -86,15 +88,22 @@ public class ActivityController {
         requireLeaderForClub(request, clubService.getById(existing.getClubId().longValue()));
         activity.setActivityId(id);
         activity.setClubId(existing.getClubId());
-        activity.setStatus("pending_approval");
-        Activity updated = activityService.update(activity);
+        boolean approvedActivityChange = "approved".equals(existing.getStatus());
+        Activity updated;
+        if (approvedActivityChange) {
+            activityService.submitChangeRequest(activity, securityContext.currentUserId(request));
+            updated = existing;
+        } else {
+            activity.setStatus("pending_approval");
+            updated = activityService.update(activity);
+        }
 
         Approval approval = new Approval();
         approval.setType("activity_application");
         approval.setRelatedId(updated.getActivityId());
         approval.setApplicantId(securityContext.currentUserId(request));
         approval.setStatus("pending");
-        approval.setComments("申请变更活动：" + updated.getTitle());
+        approval.setComments("申请变更活动：" + activity.getTitle());
         approval.setCurrentStep(1);
         approval.setTotalSteps(2);
         approvalService.create(approval);
@@ -116,6 +125,7 @@ public class ActivityController {
     @GetMapping("/activities/search")
     public Result<PageResult<Activity>> search(
             @RequestParam String keyword,
+            @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             HttpServletRequest request) {
@@ -127,6 +137,9 @@ public class ActivityController {
             Integer clubId = securityContext.managedClubId(request);
             boolean includeAdvisor = securityContext.isTeacher(request);
             return Result.ok(PageResult.of(activityService.searchManageable(keyword, userId, clubId, includeAdvisor, page, size), activityService.searchManageableCount(keyword, userId, clubId, includeAdvisor), page, size));
+        }
+        if (status != null && !status.isBlank()) {
+            return Result.ok(PageResult.of(activityService.searchByStatus(keyword, status, page, size), activityService.searchCountByStatus(keyword, status), page, size));
         }
         return Result.ok(PageResult.of(activityService.search(keyword, page, size), activityService.searchCount(keyword), page, size));
     }
@@ -154,6 +167,39 @@ public class ActivityController {
             securityContext.requireClubManager(request, clubService.getById(activity.getClubId().longValue()));
         }
         activityService.cancelSignup(id, userId != null ? userId : currentUserId);
+        return Result.ok();
+    }
+
+    @PutMapping("/activities/{id}/signups/{signupId}/status")
+    public Result<Void> updateSignupStatus(
+            @PathVariable Integer id,
+            @PathVariable Integer signupId,
+            @Valid @RequestBody SignupStatusRequest body,
+            HttpServletRequest request) {
+        Activity activity = activityService.getById(id);
+        if (activity == null) {
+            throw new RuntimeException("活动不存在");
+        }
+        requireLeaderForClub(request, clubService.getById(activity.getClubId().longValue()));
+        String status = body.status();
+        if ("approved".equals(status)) {
+            activityService.approveSignup(id, signupId);
+        } else if ("rejected".equals(status)) {
+            activityService.rejectSignup(id, signupId);
+        } else {
+            throw new RuntimeException("报名审批状态不合法");
+        }
+        return Result.ok();
+    }
+
+    @PostMapping("/activities/{id}/signups/{signupId}/checkin")
+    public Result<Void> checkinSignup(@PathVariable Integer id, @PathVariable Integer signupId, HttpServletRequest request) {
+        Activity activity = activityService.getById(id);
+        if (activity == null) {
+            throw new RuntimeException("活动不存在");
+        }
+        requireLeaderForClub(request, clubService.getById(activity.getClubId().longValue()));
+        activityService.checkinSignup(id, signupId);
         return Result.ok();
     }
 

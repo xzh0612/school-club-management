@@ -53,6 +53,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { login } from '../api/auth'
 
 const router = useRouter()
@@ -107,11 +108,11 @@ function getRouteByRole(role) {
 
 async function handleLogin() {
   if (!username.value.trim()) {
-    alert('请输入账号')
+    ElMessage.warning('请输入账号')
     return
   }
   if (!password.value) {
-    alert('请输入密码')
+    ElMessage.warning('请输入密码')
     return
   }
   

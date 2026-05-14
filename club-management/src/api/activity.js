@@ -56,11 +56,11 @@ export function deleteActivity(id) {
 /**
  * 搜索活动
  */
-export function searchActivities(keyword, page = 1, size = 10) {
+export function searchActivities(keyword, page = 1, size = 10, status = '') {
   return request({
     url: '/activities/search',
     method: 'get',
-    params: { keyword, page, size }
+    params: { keyword, page, size, status }
   })
 }
 
@@ -94,5 +94,26 @@ export function getActivitySignups(activityId, page = 1, size = 10) {
     url: `/activities/${activityId}/signups`,
     method: 'get',
     params: { page, size }
+  })
+}
+
+/**
+ * 审核活动报名
+ */
+export function updateSignupStatus(activityId, signupId, status) {
+  return request({
+    url: "/activities/" + activityId + "/signups/" + signupId + "/status",
+    method: 'put',
+    data: { status }
+  })
+}
+
+/**
+ * 活动签到
+ */
+export function checkinSignup(activityId, signupId) {
+  return request({
+    url: "/activities/" + activityId + "/signups/" + signupId + "/checkin",
+    method: 'post'
   })
 }

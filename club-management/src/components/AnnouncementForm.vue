@@ -72,6 +72,7 @@
 
 <script setup>
 import { computed, ref, reactive, watch } from 'vue'
+import { ElMessage } from 'element-plus'
 
 const props = defineProps({
   isEdit: {
@@ -122,7 +123,7 @@ const handleSubmit = async () => {
     formData.targetType = targetOptions.value[0].value
   }
   if (!formData.title || !formData.type || !formData.targetType || !formData.content) {
-    alert('请填写所有必填项')
+    ElMessage.warning('请填写所有必填项')
     return
   }
   
@@ -132,7 +133,6 @@ const handleSubmit = async () => {
     emit('submit', { ...formData })
   } catch (error) {
     console.error('提交失败:', error)
-    alert('提交失败，请重试')
   } finally {
     loading.value = false
   }

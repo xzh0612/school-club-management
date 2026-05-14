@@ -1,9 +1,11 @@
 package com.club.controller;
 
 import com.club.common.*;
+import com.club.dto.AnnouncementRequest;
 import com.club.entity.*;
 import com.club.service.*;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -50,7 +52,8 @@ public class AnnouncementController {
 
 
     @PostMapping("/announcements")
-    public Result<Announcement> create(@RequestBody Announcement announcement, HttpServletRequest request) {
+    public Result<Announcement> create(@Valid @RequestBody AnnouncementRequest requestBody, HttpServletRequest request) {
+        Announcement announcement = requestBody.toAnnouncement();
         if (!securityContext.isAdmin(request) && !securityContext.isLeader(request)) {
             throw new RuntimeException("只有管理员或社团负责人可以发布公告");
         }
@@ -64,7 +67,8 @@ public class AnnouncementController {
     }
 
     @PutMapping("/announcements/{id}")
-    public Result<Announcement> update(@PathVariable Integer id, @RequestBody Announcement announcement, HttpServletRequest request) {
+    public Result<Announcement> update(@PathVariable Integer id, @Valid @RequestBody AnnouncementRequest requestBody, HttpServletRequest request) {
+        Announcement announcement = requestBody.toAnnouncement();
         if (!securityContext.isAdmin(request) && !securityContext.isLeader(request)) {
             throw new RuntimeException("只有管理员或社团负责人可以修改公告");
         }

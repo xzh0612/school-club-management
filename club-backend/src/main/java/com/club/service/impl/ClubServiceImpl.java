@@ -17,19 +17,10 @@ public class ClubServiceImpl implements ClubService {
     private final UserMapper userMapper;
 
     @Override
-    public List<Club> list(String status, String keyword, int page, int size) {
+    public List<Club> list(String status, String keyword, String clubType, int page, int size) {
         int pageSize = PageQuery.normalizeSize(size);
         int offset = PageQuery.offset(page, size);
-        if (keyword != null && !keyword.isEmpty()) {
-            if (status != null && !status.isEmpty()) {
-                return clubMapper.searchByStatus(keyword, status, offset, pageSize);
-            }
-            return clubMapper.search(keyword, offset, pageSize);
-        }
-        if (status != null && !status.isEmpty()) {
-            return clubMapper.findByStatus(status, offset, pageSize);
-        }
-        return clubMapper.findAll(offset, pageSize);
+        return clubMapper.findByFilters(emptyToNull(status), emptyToNull(keyword), emptyToNull(clubType), offset, pageSize);
     }
 
     @Override
@@ -40,17 +31,8 @@ public class ClubServiceImpl implements ClubService {
     }
 
     @Override
-    public int count(String status, String keyword) {
-        if (keyword != null && !keyword.isEmpty()) {
-            if (status != null && !status.isEmpty()) {
-                return clubMapper.searchCountByStatus(keyword, status);
-            }
-            return clubMapper.searchCount(keyword);
-        }
-        if (status != null && !status.isEmpty()) {
-            return clubMapper.countByStatus(status);
-        }
-        return clubMapper.countAll();
+    public int count(String status, String keyword, String clubType) {
+        return clubMapper.countByFilters(emptyToNull(status), emptyToNull(keyword), emptyToNull(clubType));
     }
 
     @Override
@@ -166,5 +148,9 @@ public class ClubServiceImpl implements ClubService {
             return activityMapper.countByClubIdAndStatus(clubId.intValue(), status);
         }
         return activityMapper.countByClubId(clubId.intValue());
+    }
+
+    private String emptyToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

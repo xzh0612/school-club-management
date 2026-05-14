@@ -146,6 +146,7 @@
 
 <script setup>
 import { ref, reactive, watch, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import { getClubList } from '../api/club'
 
 const props = defineProps({
@@ -214,17 +215,17 @@ const handleSubmit = async () => {
       !formData.maxParticipants || !formData.registrationDeadline ||
       !formData.startTime || !formData.endTime || !formData.location ||
       !formData.organizer || !formData.contact) {
-    alert('请填写所有必填项')
+    ElMessage.warning('请填写所有必填项')
     return
   }
   
   if (new Date(formData.registrationDeadline) >= new Date(formData.startTime)) {
-    alert('报名截止时间必须早于活动开始时间')
+    ElMessage.warning('报名截止时间必须早于活动开始时间')
     return
   }
   
   if (new Date(formData.startTime) >= new Date(formData.endTime)) {
-    alert('活动开始时间必须早于结束时间')
+    ElMessage.warning('活动开始时间必须早于结束时间')
     return
   }
   
@@ -240,7 +241,6 @@ const handleSubmit = async () => {
     emit('submit', submitData)
   } catch (error) {
     console.error('提交失败:', error)
-    alert('提交失败，请重试')
   } finally {
     loading.value = false
   }

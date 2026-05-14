@@ -1,14 +1,14 @@
 <template>
   <div>
     <div class="search-bar">
-      <input class="search-input" placeholder="搜索社团名称..." v-model="keyword" @keyup.enter="fetchClubs" />
-      <select class="filter-select" v-model="statusFilter" @change="fetchClubs">
+      <input class="search-input" placeholder="搜索社团名称..." v-model="keyword" @keyup.enter="handleSearch" />
+      <select class="filter-select" v-model="statusFilter" @change="handleSearch">
         <option value="approved">已成立社团</option>
         <option value="">全部状态</option>
         <option value="pending">待审批</option>
         <option value="rejected">已驳回</option>
       </select>
-      <select class="filter-select" v-model="typeFilter">
+      <select class="filter-select" v-model="typeFilter" @change="handleSearch">
         <option value="">全部类型</option>
         <option value="academic">学术科技</option>
         <option value="culture">文化艺术</option>
@@ -17,12 +17,12 @@
         <option value="innovation">创新创业</option>
         <option value="general">综合类</option>
       </select>
-      <button class="btn btn-primary" @click="fetchClubs">🔍 搜索</button>
+      <button class="btn btn-primary" @click="handleSearch">🔍 搜索</button>
     </div>
 
     <div v-if="loading" class="empty-state">正在加载社团...</div>
     <div v-else class="club-grid">
-      <div class="club-card" v-for="c in filteredClubs" :key="c.id">
+      <div class="club-card" v-for="c in clubs" :key="c.id">
         <div class="club-cover" :style="{ background: c.gradient }">{{ c.icon }}</div>
         <div class="club-info">
           <h4>{{ c.name }}</h4>
@@ -40,7 +40,13 @@
       </div>
     </div>
 
-    <div v-if="!loading && filteredClubs.length === 0" class="empty-state">暂无社团数据</div>
+    <div v-if="!loading && clubs.length === 0" class="empty-state">暂无社团数据</div>
+
+    <div v-if="!loading && totalPages > 1" class="pagination">
+      <button class="btn btn-outline btn-sm" :disabled="currentPage <= 1" @click="changePage(currentPage - 1)">上一页</button>
+      <span class="page-info">第 {{ currentPage }} 页，共 {{ totalPages }} 页</span>
+      <button class="btn btn-outline btn-sm" :disabled="currentPage >= totalPages" @click="changePage(currentPage + 1)">下一页</button>
+    </div>
   </div>
 </template>
 
@@ -55,6 +61,10 @@ const statusFilter = ref('approved')
 const typeFilter = ref('')
 const loading = ref(false)
 const clubs = ref([])
+const currentPage = ref(1)
+const pageSize = ref(9)
+const total = ref(0)
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
 const extractRecords = (payload) => payload?.records || payload?.list || (Array.isArray(payload) ? payload : [])
 
@@ -123,8 +133,9 @@ const normalizeClub = (club) => ({
 const fetchClubs = async () => {
   loading.value = true
   try {
-    const response = await getClubList(1, 100, statusFilter.value, keyword.value)
+    const response = await getClubList(currentPage.value, pageSize.value, statusFilter.value, keyword.value, typeFilter.value)
     clubs.value = extractRecords(response.data).map(normalizeClub)
+    total.value = response.data?.total || clubs.value.length
   } catch (error) {
     console.error('获取社团失败:', error)
     clubs.value = []
@@ -132,6 +143,16 @@ const fetchClubs = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const handleSearch = () => {
+  currentPage.value = 1
+  fetchClubs()
+}
+
+const changePage = (page) => {
+  currentPage.value = page
+  fetchClubs()
 }
 
 const applyJoin = async (club) => {

@@ -3,6 +3,7 @@ package com.club.controller;
 import com.club.common.*;
 import com.club.entity.*;
 import com.club.service.*;
+import com.club.vo.UserVO;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -25,8 +26,8 @@ public class AuthController {
     }
 
     @GetMapping("/user/info")
-    public Result<User> info(HttpServletRequest request) {
-        return Result.ok(securityContext.currentUser(request));
+    public Result<UserVO> info(HttpServletRequest request) {
+        return Result.ok(UserVO.from(securityContext.currentUser(request)));
     }
 
     @PostMapping("/logout")

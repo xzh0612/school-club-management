@@ -93,6 +93,7 @@
 
 <script setup>
 import { ref, reactive, watch, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import { getClubList } from '../api/club'
 
 const props = defineProps({
@@ -146,12 +147,12 @@ formData.endTime = formData.endTime || today
 const handleSubmit = async () => {
   if (!formData.clubId || !formData.title || !formData.quota || 
       !formData.startTime || !formData.endTime) {
-    alert('请填写所有必填项')
+    ElMessage.warning('请填写所有必填项')
     return
   }
   
   if (new Date(formData.startTime) > new Date(formData.endTime)) {
-    alert('开始时间不能晚于截止时间')
+    ElMessage.warning('开始时间不能晚于截止时间')
     return
   }
   
@@ -166,7 +167,6 @@ const handleSubmit = async () => {
     emit('submit', submitData)
   } catch (error) {
     console.error('提交失败:', error)
-    alert('提交失败，请重试')
   } finally {
     loading.value = false
   }

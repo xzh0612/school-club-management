@@ -1,8 +1,11 @@
 package com.club.controller;
 
 import com.club.common.*;
+import com.club.dto.ClubMemberUpdateRequest;
+import com.club.dto.ClubRequest;
 import com.club.entity.*;
 import com.club.service.*;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -25,9 +28,10 @@ public class ClubController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String clubType,
             HttpServletRequest request) {
         if (securityContext.isStudent(request)) {
-            return Result.ok(PageResult.of(clubService.list("approved", keyword, page, size), clubService.count("approved", keyword), page, size));
+            return Result.ok(PageResult.of(clubService.list("approved", keyword, clubType, page, size), clubService.count("approved", keyword, clubType), page, size));
         }
         if (!securityContext.isAdmin(request)) {
             Integer userId = securityContext.currentUserId(request);
@@ -35,7 +39,7 @@ public class ClubController {
             boolean includeAdvisor = securityContext.isTeacher(request);
             return Result.ok(PageResult.of(clubService.listManageable(userId, clubId, includeAdvisor, page, size), clubService.countManageable(userId, clubId, includeAdvisor), page, size));
         }
-        return Result.ok(PageResult.of(clubService.list(status, keyword, page, size), clubService.count(status, keyword), page, size));
+        return Result.ok(PageResult.of(clubService.list(status, keyword, clubType, page, size), clubService.count(status, keyword, clubType), page, size));
     }
 
     @GetMapping("/clubs/stats")
@@ -68,7 +72,8 @@ public class ClubController {
 
     @PostMapping("/clubs")
     @Transactional
-    public Result<Club> create(@RequestBody Club club, HttpServletRequest request) {
+    public Result<Club> create(@Valid @RequestBody ClubRequest requestBody, HttpServletRequest request) {
+        Club club = requestBody.toClub();
         Integer applicantId = securityContext.currentUserId(request);
         if (securityContext.isAdmin(request)) {
             if (club.getStatus() == null || club.getStatus().isBlank()) {
@@ -97,7 +102,8 @@ public class ClubController {
     }
 
     @PutMapping("/clubs/{id}")
-    public Result<Club> update(@PathVariable Integer id, @RequestBody Club club, HttpServletRequest request) {
+    public Result<Club> update(@PathVariable Integer id, @Valid @RequestBody ClubRequest requestBody, HttpServletRequest request) {
+        Club club = requestBody.toClub();
         Club existing = clubService.getById(id.longValue());
         if (existing == null) {
             throw new RuntimeException("社团不存在");
@@ -164,7 +170,6 @@ public class ClubController {
     @PostMapping("/clubs/{id}/members")
     public Result<ClubMember> addMember(
             @PathVariable Integer id,
-            @RequestBody java.util.Map<String, Object> body,
             HttpServletRequest request) {
         throw new RuntimeException("成员加入必须通过入社申请审核，不能直接添加成员");
     }
@@ -173,12 +178,10 @@ public class ClubController {
     public Result<ClubMember> updateMember(
             @PathVariable Integer id,
             @PathVariable Integer userId,
-            @RequestBody java.util.Map<String, Object> body,
+            @RequestBody ClubMemberUpdateRequest body,
             HttpServletRequest request) {
         securityContext.requireClubLeader(request, clubService.getById(id.longValue()));
-        String role = (String) body.get("role");
-        String status = (String) body.get("status");
-        return Result.ok(clubMemberService.updateMember(id, userId, role, status));
+        return Result.ok(clubMemberService.updateMember(id, userId, body.role(), body.status()));
     }
 
     @DeleteMapping("/clubs/{id}/members/{userId}")

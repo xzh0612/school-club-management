@@ -3,11 +3,11 @@ import request from '../utils/request'
 /**
  * 获取社团列表
  */
-export function getClubList(page = 1, size = 10, status = '', keyword = '') {
+export function getClubList(page = 1, size = 10, status = '', keyword = '', clubType = '') {
   return request({
     url: '/clubs',
     method: 'get',
-    params: { page, size, status, keyword }
+    params: { page, size, status, keyword, clubType }
   })
 }
 

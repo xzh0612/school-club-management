@@ -16,8 +16,8 @@ import java.util.Set;
 public class ClubMemberServiceImpl implements ClubMemberService {
 
     private final ClubMemberMapper clubMemberMapper;
-    private static final Set<String> MEMBER_ROLES = Set.of("leader", "club_leader", "deputy_leader", "member");
-    private static final Set<String> MEMBER_STATUSES = Set.of("active", "inactive", "quit");
+    private static final Set<String> MEMBER_ROLES = Set.of("leader", "club_leader", "member");
+    private static final Set<String> MEMBER_STATUSES = Set.of("active", "inactive", "removed");
 
     @Override
     public List<ClubMember> listByClub(Integer clubId, int page, int size) {
@@ -96,7 +96,7 @@ public class ClubMemberServiceImpl implements ClubMemberService {
         if (member == null) {
             return;
         }
-        ensureLeaderRemains(member, null, "quit");
+        ensureLeaderRemains(member, null, "removed");
         clubMemberMapper.deleteByClubAndUser(clubId, userId);
     }
 

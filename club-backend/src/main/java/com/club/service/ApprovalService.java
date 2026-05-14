@@ -9,6 +9,7 @@ public interface ApprovalService {
     List<Approval> listForAdvisor(Integer advisorId, String type, String status, int page, int size);
     int countForAdvisor(Integer advisorId, String type, String status);
     Approval getById(Integer id);
+    List<ApprovalHistory> histories(Integer approvalId);
     Approval create(Approval approval);
     Approval update(Approval approval);
     void delete(Integer id);

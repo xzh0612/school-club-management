@@ -9,7 +9,7 @@
     <div class="card">
       <div class="card-header"><h3>社团列表</h3><div style="display:flex;gap:8px"><input class="search-input" style="width:180px" placeholder="搜索社团名称..." v-model="searchKeyword" @keyup.enter="handleSearch" /><select class="filter-select" v-model="typeFilter"><option value="">全部类型</option><option value="academic">学术科技</option><option value="culture">文化艺术</option><option value="sports">体育竞技</option><option value="volunteer">公益志愿</option><option value="innovation">创新创业</option><option value="general">综合类</option></select><button class="btn btn-primary btn-sm" @click="handleSearch">🔍 搜索</button></div></div>
       <div class="club-grid">
-        <div class="club-card" v-for="c in filteredClubs" :key="c.id" @click="openMembers(c)">
+        <div class="club-card" v-for="c in clubs" :key="c.id" @click="openMembers(c)">
           <div class="club-cover" :style="{ background: c.gradient }">{{ c.icon }}</div>
           <div class="club-info">
             <h4>{{ c.name }}</h4>
@@ -18,6 +18,7 @@
           </div>
         </div>
       </div>
+      <div v-if="totalPages > 1" class="pagination"><button class="btn btn-outline btn-sm" :disabled="currentPage <= 1" @click="changePage(currentPage - 1)">上一页</button><span class="page-info">第 {{ currentPage }} 页，共 {{ totalPages }} 页</span><button class="btn btn-outline btn-sm" :disabled="currentPage >= totalPages" @click="changePage(currentPage + 1)">下一页</button></div>
     </div>
     <div v-if="selectedClub" class="card" style="margin-top:16px">
       <div class="card-header">
@@ -50,12 +51,14 @@
         </tbody>
       </table>
       <div v-if="members.length === 0" class="empty-state">暂无成员数据</div>
+      <div v-if="memberTotalPages > 1" class="pagination"><button class="btn btn-outline btn-sm" :disabled="memberPage <= 1" @click="changeMemberPage(memberPage - 1)">上一页</button><span class="page-info">第 {{ memberPage }} 页，共 {{ memberTotalPages }} 页</span><button class="btn btn-outline btn-sm" :disabled="memberPage >= memberTotalPages" @click="changeMemberPage(memberPage + 1)">下一页</button></div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed, ref, onMounted } from 'vue'
+import { ElMessageBox } from 'element-plus'
 import { getClubList, getClubMembers, getClubStats, removeClubMember, updateClubMember } from '../../api/club'
 
 const clubs = ref([])
@@ -67,6 +70,12 @@ const pendingClubs = ref(0)
 const classifiedClubs = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(6)
+const total = ref(0)
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
+const memberPage = ref(1)
+const memberPageSize = ref(10)
+const memberTotal = ref(0)
+const memberTotalPages = computed(() => Math.max(1, Math.ceil(memberTotal.value / memberPageSize.value)))
 const loading = ref(false)
 const searchKeyword = ref('')
 const typeFilter = ref('')
@@ -77,8 +86,9 @@ const canManageMembers = computed(() => currentRole.value === 'club_leader')
 const fetchClubs = async () => {
   loading.value = true
   try {
-    const response = await getClubList(currentPage.value, pageSize.value, '', searchKeyword.value)
+    const response = await getClubList(currentPage.value, pageSize.value, '', searchKeyword.value, typeFilter.value)
     
+    total.value = response.data?.total || 0
     const records = response.data.records || []
     clubs.value = await Promise.all(records.map(async (club) => {
       let memberCount = 0
@@ -127,18 +137,31 @@ const handleSearch = () => {
 
 const openMembers = async (club) => {
   selectedClub.value = club
+  memberPage.value = 1
   await fetchMembers()
 }
 
 const closeMembers = () => {
   selectedClub.value = null
   members.value = []
+  memberTotal.value = 0
 }
 
 const fetchMembers = async () => {
   if (!selectedClub.value) return
-  const response = await getClubMembers(selectedClub.value.id, 1, 100)
+  const response = await getClubMembers(selectedClub.value.id, memberPage.value, memberPageSize.value)
   members.value = response.data?.records || []
+  memberTotal.value = response.data?.total || members.value.length
+}
+
+const changePage = (page) => {
+  currentPage.value = page
+  fetchClubs()
+}
+
+const changeMemberPage = (page) => {
+  memberPage.value = page
+  fetchMembers()
 }
 
 const updateMember = async (member) => {
@@ -151,14 +174,14 @@ const updateMember = async (member) => {
 }
 
 const deleteMember = async (member) => {
-  if (!confirm(`确定移除 ${member.userName || '该成员'} 吗？`)) return
+  await ElMessageBox.confirm(`确定移除 ${member.userName || '该成员'} 吗？`, '提示')
   await removeClubMember(selectedClub.value.id, member.userId)
   await fetchMembers()
   await fetchClubs()
 }
 
 const roleText = (role) => ({ leader: '社长', club_leader: '社长', member: '社员' }[role] || role)
-const statusText = (status) => ({ active: '正常', inactive: '停用' }[status] || status)
+const statusText = (status) => ({ active: '正常', inactive: '停用', removed: '已移除' }[status] || status)
 const formatDate = (value) => value ? new Date(value).toLocaleString('zh-CN') : '—'
 
 const filteredClubs = computed(() => clubs.value.filter(c => {

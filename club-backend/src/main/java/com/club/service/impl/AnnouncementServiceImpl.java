@@ -15,7 +15,7 @@ public class AnnouncementServiceImpl implements AnnouncementService {
 
     private final AnnouncementMapper announcementMapper;
     private static final Set<String> TARGET_TYPES = Set.of("all", "club");
-    private static final Set<String> STATUSES = Set.of("draft", "published", "revoked");
+    private static final Set<String> STATUSES = Set.of("draft", "published", "archived");
 
     @Override
     public List<Announcement> list(String status, String targetType, Boolean isTop, int page, int size) {
@@ -142,7 +142,7 @@ public class AnnouncementServiceImpl implements AnnouncementService {
     
     @Override
     public void revoke(Integer id) {
-        updateStatus(id, "revoked");
+        updateStatus(id, "archived");
     }
 
     private void updateStatus(Integer id, String status) {

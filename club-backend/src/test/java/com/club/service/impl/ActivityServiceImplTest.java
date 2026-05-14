@@ -1,6 +1,7 @@
 package com.club.service.impl;
 
 import com.club.entity.Activity;
+import com.club.mapper.ActivityChangeRequestMapper;
 import com.club.mapper.ActivityMapper;
 import com.club.mapper.ActivitySignupMapper;
 import org.junit.jupiter.api.Test;
@@ -14,7 +15,8 @@ class ActivityServiceImplTest {
 
     private final ActivityServiceImpl service = new ActivityServiceImpl(
             mock(ActivityMapper.class),
-            mock(ActivitySignupMapper.class)
+            mock(ActivitySignupMapper.class),
+            mock(ActivityChangeRequestMapper.class)
     );
 
     @Test

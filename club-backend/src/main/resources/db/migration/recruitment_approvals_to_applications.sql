@@ -9,7 +9,7 @@ SELECT
         FROM recruitments r
         WHERE r.club_id = ap.related_id
         ORDER BY
-            CASE r.status WHEN 'active' THEN 1 WHEN 'pending' THEN 2 ELSE 3 END,
+            CASE r.status WHEN 'active' THEN 1 WHEN 'closed' THEN 2 ELSE 3 END,
             r.create_time DESC
         LIMIT 1
     ),
@@ -36,4 +36,7 @@ JOIN applications keep_app
  AND keep_app.status = app.status
  AND keep_app.application_id < app.application_id;
 
-DELETE FROM approvals WHERE type = 'recruitment_application';
+UPDATE approvals
+SET status = 'archived',
+    update_time = NOW()
+WHERE type = 'recruitment_application';

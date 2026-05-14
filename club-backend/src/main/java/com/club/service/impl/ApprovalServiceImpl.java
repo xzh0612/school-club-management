@@ -3,6 +3,8 @@ package com.club.service.impl;
 import com.club.common.PageQuery;
 import com.club.entity.*;
 import com.club.mapper.ActivityMapper;
+import com.club.mapper.ActivityChangeRequestMapper;
+import com.club.mapper.ApprovalHistoryMapper;
 import com.club.mapper.ApprovalMapper;
 import com.club.mapper.ClubMapper;
 import com.club.service.ClubMemberService;
@@ -19,6 +21,8 @@ public class ApprovalServiceImpl implements ApprovalService {
     private final ApprovalMapper approvalMapper;
     private final ClubMapper clubMapper;
     private final ActivityMapper activityMapper;
+    private final ActivityChangeRequestMapper activityChangeRequestMapper;
+    private final ApprovalHistoryMapper approvalHistoryMapper;
     private final ClubMemberService clubMemberService;
 
     @Override
@@ -67,6 +71,11 @@ public class ApprovalServiceImpl implements ApprovalService {
     public Approval getById(Integer id) {
         return approvalMapper.findById(id);
     }
+
+    @Override
+    public List<ApprovalHistory> histories(Integer approvalId) {
+        return approvalHistoryMapper.findByApprovalId(approvalId);
+    }
     
     @Override
     public Approval create(Approval approval) {
@@ -84,6 +93,7 @@ public class ApprovalServiceImpl implements ApprovalService {
             approval.setTotalSteps(1);
         }
         approvalMapper.insert(approval);
+        recordHistory(approval.getApprovalId(), approval.getCurrentStep(), approval.getApplicantId(), "created", approval.getComments());
         return approval;
     }
     
@@ -95,6 +105,10 @@ public class ApprovalServiceImpl implements ApprovalService {
     
     @Override
     public void delete(Integer id) {
+        Approval existing = approvalMapper.findById(id);
+        if (existing != null) {
+            recordHistory(id, existing.getCurrentStep(), existing.getApproverId(), "archived", "归档审批记录");
+        }
         approvalMapper.deleteById(id);
     }
     
@@ -132,12 +146,24 @@ public class ApprovalServiceImpl implements ApprovalService {
         if (!"pending".equals(existing.getStatus())) {
             throw new RuntimeException("审批记录已处理");
         }
+        if (existing.getCurrentStep() != null && existing.getTotalSteps() != null
+                && existing.getCurrentStep() < existing.getTotalSteps()) {
+            Approval stepApproval = new Approval();
+            stepApproval.setApprovalId(id);
+            stepApproval.setApproverId(approverId);
+            stepApproval.setComments(comments);
+            stepApproval.setCurrentStep(existing.getCurrentStep() + 1);
+            approvalMapper.updateStep(stepApproval);
+            recordHistory(id, existing.getCurrentStep(), approverId, "advanced", comments);
+            return;
+        }
         Approval approval = new Approval();
         approval.setApprovalId(id);
         approval.setApproverId(approverId);
         approval.setStatus("approved");
         approval.setComments(comments);
         approvalMapper.updateStatus(approval);
+        recordHistory(id, existing.getCurrentStep(), approverId, "approved", comments);
         applyApprovalResult(existing, "approved");
     }
     
@@ -157,6 +183,7 @@ public class ApprovalServiceImpl implements ApprovalService {
         approval.setStatus("rejected");
         approval.setComments(comments);
         approvalMapper.updateStatus(approval);
+        recordHistory(id, existing.getCurrentStep(), approverId, "rejected", comments);
         applyApprovalResult(existing, "rejected");
     }
     
@@ -234,7 +261,38 @@ public class ApprovalServiceImpl implements ApprovalService {
         if (activity == null) {
             return;
         }
+        ActivityChangeRequest pendingChange = activityChangeRequestMapper.findPendingByActivityId(activityId);
+        if (pendingChange != null) {
+            if ("approved".equals(status)) {
+                activity.setTitle(pendingChange.getTitle());
+                activity.setContent(pendingChange.getContent());
+                activity.setType(pendingChange.getType());
+                activity.setMaxParticipants(pendingChange.getMaxParticipants());
+                activity.setRegistrationDeadline(pendingChange.getRegistrationDeadline());
+                activity.setOrganizer(pendingChange.getOrganizer());
+                activity.setContact(pendingChange.getContact());
+                activity.setStartTime(pendingChange.getStartTime());
+                activity.setEndTime(pendingChange.getEndTime());
+                activity.setLocation(pendingChange.getLocation());
+                activity.setStatus("approved");
+                activityMapper.update(activity);
+                activityChangeRequestMapper.updateStatus(pendingChange.getChangeId(), "approved");
+            } else {
+                activityChangeRequestMapper.updateStatus(pendingChange.getChangeId(), "rejected");
+            }
+            return;
+        }
         activity.setStatus(status);
         activityMapper.update(activity);
+    }
+
+    private void recordHistory(Integer approvalId, Integer stepNo, Integer operatorId, String action, String comments) {
+        ApprovalHistory history = new ApprovalHistory();
+        history.setApprovalId(approvalId);
+        history.setStepNo(stepNo == null ? 1 : stepNo);
+        history.setOperatorId(operatorId);
+        history.setAction(action);
+        history.setComments(comments);
+        approvalHistoryMapper.insert(history);
     }
 }

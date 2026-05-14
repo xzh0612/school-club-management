@@ -7,7 +7,7 @@ import java.util.List;
 @Mapper
 public interface ActivityMapper {
     
-    @Select("SELECT a.*, c.club_name, (SELECT COUNT(*) FROM activity_signups s WHERE s.activity_id = a.activity_id) AS current_participants " +
+    @Select("SELECT a.*, c.club_name, (SELECT COUNT(*) FROM activity_signups s WHERE s.activity_id = a.activity_id AND s.status IN ('pending','approved','attended')) AS current_participants " +
             "FROM activities a " +
             "LEFT JOIN clubs c ON a.club_id = c.club_id " +
             "WHERE a.activity_id = #{activityId}")
@@ -17,14 +17,14 @@ public interface ActivityMapper {
             "FROM activities WHERE activity_id = #{activityId} FOR UPDATE")
     Activity findByIdForUpdate(Integer activityId);
     
-    @Select("SELECT a.*, c.club_name, (SELECT COUNT(*) FROM activity_signups s WHERE s.activity_id = a.activity_id) AS current_participants " +
+    @Select("SELECT a.*, c.club_name, (SELECT COUNT(*) FROM activity_signups s WHERE s.activity_id = a.activity_id AND s.status IN ('pending','approved','attended')) AS current_participants " +
             "FROM activities a " +
             "LEFT JOIN clubs c ON a.club_id = c.club_id " +
             "ORDER BY a.start_time DESC, a.activity_id DESC LIMIT #{offset}, #{limit}")
     List<Activity> findAll(@Param("offset") int offset, @Param("limit") int limit);
 
     @Select("<script>" +
-            "SELECT a.*, c.club_name, (SELECT COUNT(*) FROM activity_signups s WHERE s.activity_id = a.activity_id) AS current_participants " +
+            "SELECT a.*, c.club_name, (SELECT COUNT(*) FROM activity_signups s WHERE s.activity_id = a.activity_id AND s.status IN ('pending','approved','attended')) AS current_participants " +
             "FROM activities a " +
             "LEFT JOIN clubs c ON a.club_id = c.club_id " +
             "WHERE (" +
@@ -65,13 +65,13 @@ public interface ActivityMapper {
     @Update("UPDATE activities SET status = 'archived' WHERE activity_id = #{activityId}")
     int deleteById(Integer activityId);
     
-    @Select("SELECT a.*, c.club_name, (SELECT COUNT(*) FROM activity_signups s WHERE s.activity_id = a.activity_id) AS current_participants " +
+    @Select("SELECT a.*, c.club_name, (SELECT COUNT(*) FROM activity_signups s WHERE s.activity_id = a.activity_id AND s.status IN ('pending','approved','attended')) AS current_participants " +
             "FROM activities a " +
             "LEFT JOIN clubs c ON a.club_id = c.club_id " +
             "WHERE a.club_id = #{clubId}")
     List<Activity> findByClubIdSimple(Integer clubId);
     
-    @Select("SELECT a.*, c.club_name, (SELECT COUNT(*) FROM activity_signups s WHERE s.activity_id = a.activity_id) AS current_participants " +
+    @Select("SELECT a.*, c.club_name, (SELECT COUNT(*) FROM activity_signups s WHERE s.activity_id = a.activity_id AND s.status IN ('pending','approved','attended')) AS current_participants " +
             "FROM activities a " +
             "LEFT JOIN clubs c ON a.club_id = c.club_id " +
             "WHERE a.club_id = #{clubId} ORDER BY a.start_time DESC, a.activity_id DESC LIMIT #{offset}, #{limit}")
@@ -80,7 +80,7 @@ public interface ActivityMapper {
     @Select("SELECT COUNT(*) FROM activities WHERE club_id = #{clubId}")
     int countByClubId(Integer clubId);
 
-    @Select("SELECT a.*, c.club_name, (SELECT COUNT(*) FROM activity_signups s WHERE s.activity_id = a.activity_id) AS current_participants " +
+    @Select("SELECT a.*, c.club_name, (SELECT COUNT(*) FROM activity_signups s WHERE s.activity_id = a.activity_id AND s.status IN ('pending','approved','attended')) AS current_participants " +
             "FROM activities a " +
             "LEFT JOIN clubs c ON a.club_id = c.club_id " +
             "WHERE a.club_id = #{clubId} AND a.status = #{status} ORDER BY a.start_time DESC, a.activity_id DESC LIMIT #{offset}, #{limit}")
@@ -89,7 +89,7 @@ public interface ActivityMapper {
     @Select("SELECT COUNT(*) FROM activities WHERE club_id = #{clubId} AND status = #{status}")
     int countByClubIdAndStatus(@Param("clubId") Integer clubId, @Param("status") String status);
     
-    @Select("SELECT a.*, c.club_name, (SELECT COUNT(*) FROM activity_signups s WHERE s.activity_id = a.activity_id) AS current_participants " +
+    @Select("SELECT a.*, c.club_name, (SELECT COUNT(*) FROM activity_signups s WHERE s.activity_id = a.activity_id AND s.status IN ('pending','approved','attended')) AS current_participants " +
             "FROM activities a " +
             "LEFT JOIN clubs c ON a.club_id = c.club_id " +
             "WHERE a.status = #{status} ORDER BY a.start_time DESC, a.activity_id DESC LIMIT #{offset}, #{limit}")
@@ -101,7 +101,7 @@ public interface ActivityMapper {
     @Select("SELECT COUNT(*) FROM activities a INNER JOIN clubs c ON a.club_id = c.club_id WHERE c.advisor_id = #{advisorId} AND a.status = #{status}")
     int countByAdvisorAndStatus(@Param("advisorId") Integer advisorId, @Param("status") String status);
     
-    @Select("SELECT a.*, c.club_name, (SELECT COUNT(*) FROM activity_signups s WHERE s.activity_id = a.activity_id) AS current_participants " +
+    @Select("SELECT a.*, c.club_name, (SELECT COUNT(*) FROM activity_signups s WHERE s.activity_id = a.activity_id AND s.status IN ('pending','approved','attended')) AS current_participants " +
             "FROM activities a " +
             "LEFT JOIN clubs c ON a.club_id = c.club_id " +
             "WHERE a.title LIKE CONCAT('%',#{keyword},'%') ORDER BY a.start_time DESC, a.activity_id DESC LIMIT #{offset}, #{limit}")
@@ -110,7 +110,7 @@ public interface ActivityMapper {
     @Select("SELECT COUNT(*) FROM activities WHERE title LIKE CONCAT('%',#{keyword},'%')")
     int searchCount(String keyword);
 
-    @Select("SELECT a.*, c.club_name, (SELECT COUNT(*) FROM activity_signups s WHERE s.activity_id = a.activity_id) AS current_participants " +
+    @Select("SELECT a.*, c.club_name, (SELECT COUNT(*) FROM activity_signups s WHERE s.activity_id = a.activity_id AND s.status IN ('pending','approved','attended')) AS current_participants " +
             "FROM activities a " +
             "LEFT JOIN clubs c ON a.club_id = c.club_id " +
             "WHERE a.status = #{status} AND a.title LIKE CONCAT('%',#{keyword},'%') ORDER BY a.start_time DESC, a.activity_id DESC LIMIT #{offset}, #{limit}")
@@ -120,7 +120,7 @@ public interface ActivityMapper {
     int searchCountByStatus(@Param("keyword") String keyword, @Param("status") String status);
 
     @Select("<script>" +
-            "SELECT a.*, c.club_name, (SELECT COUNT(*) FROM activity_signups s WHERE s.activity_id = a.activity_id) AS current_participants " +
+            "SELECT a.*, c.club_name, (SELECT COUNT(*) FROM activity_signups s WHERE s.activity_id = a.activity_id AND s.status IN ('pending','approved','attended')) AS current_participants " +
             "FROM activities a " +
             "LEFT JOIN clubs c ON a.club_id = c.club_id " +
             "WHERE (" +

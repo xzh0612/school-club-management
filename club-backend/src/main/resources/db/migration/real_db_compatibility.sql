@@ -31,6 +31,7 @@ CALL add_column_if_missing('users', 'department', "`department` VARCHAR(100) DEF
 CALL add_column_if_missing('users', 'class_name', "`class_name` VARCHAR(100) DEFAULT NULL COMMENT '班级' AFTER `department`");
 CALL add_column_if_missing('users', 'register_time', "`register_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间' AFTER `class_name`");
 CALL add_column_if_missing('users', 'last_login_time', "`last_login_time` DATETIME DEFAULT NULL COMMENT '最后登录时间' AFTER `register_time`");
+CALL add_column_if_missing('users', 'token_version', "`token_version` INT NOT NULL DEFAULT 0 COMMENT 'Token版本' AFTER `phone`");
 
 CALL add_column_if_missing('clubs', 'club_type', "`club_type` VARCHAR(50) NOT NULL DEFAULT 'general' COMMENT '社团类型' AFTER `description`");
 CALL add_column_if_missing('activities', 'type', "`type` VARCHAR(50) DEFAULT NULL COMMENT '活动类型' AFTER `content`");
@@ -47,12 +48,44 @@ CALL add_column_if_missing('approvals', 'current_step', "`current_step` INT NOT 
 CALL add_column_if_missing('approvals', 'total_steps', "`total_steps` INT NOT NULL DEFAULT 1 COMMENT '总审批步骤' AFTER `current_step`");
 CALL add_column_if_missing('approvals', 'update_time', "`update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间' AFTER `approval_time`");
 
-CALL add_column_if_missing('announcements', 'status', "`status` VARCHAR(20) NOT NULL DEFAULT 'published' COMMENT '公告状态：draft/published/revoked' AFTER `target_id`");
+CALL add_column_if_missing('announcements', 'status', "`status` VARCHAR(20) NOT NULL DEFAULT 'published' COMMENT '公告状态：draft/published/archived' AFTER `target_id`");
 CALL add_column_if_missing('announcements', 'view_count', "`view_count` INT NOT NULL DEFAULT 0 COMMENT '浏览次数' AFTER `is_top`");
 CALL add_column_if_missing('announcements', 'create_time', "`create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间' AFTER `view_count`");
 CALL add_column_if_missing('announcements', 'update_time', "`update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间' AFTER `create_time`");
 
 CALL add_column_if_missing('recruitments', 'requirements', "`requirements` TEXT DEFAULT NULL COMMENT '招新要求' AFTER `quota`");
+CALL add_column_if_missing('approvals', 'approval_time', "`approval_time` DATETIME DEFAULT NULL COMMENT '审批时间' AFTER `comments`");
+
+CREATE TABLE IF NOT EXISTS activity_change_requests (
+    change_id INT PRIMARY KEY AUTO_INCREMENT,
+    activity_id INT NOT NULL,
+    requester_id INT NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    content TEXT,
+    type VARCHAR(50) DEFAULT NULL,
+    max_participants INT NOT NULL,
+    registration_deadline DATETIME DEFAULT NULL,
+    organizer VARCHAR(50) DEFAULT NULL,
+    contact VARCHAR(100) DEFAULT NULL,
+    start_time DATETIME NOT NULL,
+    end_time DATETIME NOT NULL,
+    location VARCHAR(200) DEFAULT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_activity_change_activity_status(activity_id, status)
+);
+
+CREATE TABLE IF NOT EXISTS approval_histories (
+    history_id INT PRIMARY KEY AUTO_INCREMENT,
+    approval_id INT NOT NULL,
+    step_no INT NOT NULL,
+    operator_id INT DEFAULT NULL,
+    action VARCHAR(30) NOT NULL,
+    comments TEXT,
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_approval_histories_approval(approval_id)
+);
 
 UPDATE users u
 LEFT JOIN club_members cm ON cm.user_id = u.user_id AND cm.role = 'leader' AND cm.status = 'active'
@@ -63,7 +96,15 @@ WHERE u.role = 'club_leader';
 
 UPDATE users
 SET status = COALESCE(NULLIF(status, ''), 'active'),
-    register_time = COALESCE(register_time, create_time, NOW());
+    register_time = COALESCE(register_time, create_time, NOW()),
+    token_version = COALESCE(token_version, 0);
+
+UPDATE club_members SET role = 'member' WHERE role NOT IN ('member', 'leader', 'club_leader');
+UPDATE club_members SET status = 'removed' WHERE status IN ('quit', 'deleted');
+UPDATE club_members SET status = 'inactive' WHERE status NOT IN ('active', 'inactive', 'removed');
+UPDATE recruitments SET status = 'inactive' WHERE status = 'pending';
+UPDATE recruitments SET status = 'archived' WHERE status NOT IN ('active', 'closed', 'inactive', 'archived');
+UPDATE announcements SET status = 'archived' WHERE status = 'revoked';
 
 UPDATE clubs
 SET club_type = CASE

@@ -35,4 +35,10 @@ public interface ActivitySignupMapper {
 
     @Select("SELECT COUNT(*) FROM activity_signups WHERE activity_id = #{activityId} AND status IN ('pending','approved','attended')")
     int countActiveByActivityId(Integer activityId);
+
+    @Select("SELECT * FROM activity_signups WHERE signup_id = #{signupId} AND activity_id = #{activityId}")
+    ActivitySignup findByIdForActivity(@Param("activityId") Integer activityId, @Param("signupId") Integer signupId);
+
+    @Update("UPDATE activity_signups SET status = #{status}, checkin_time = CASE WHEN #{status} = 'attended' THEN NOW() ELSE checkin_time END WHERE signup_id = #{signupId} AND activity_id = #{activityId}")
+    int updateStatus(@Param("activityId") Integer activityId, @Param("signupId") Integer signupId, @Param("status") String status);
 }

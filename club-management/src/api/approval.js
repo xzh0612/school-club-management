@@ -22,6 +22,16 @@ export function getApprovalDetail(id) {
 }
 
 /**
+ * 获取审批历史
+ */
+export function getApprovalHistories(id) {
+  return request({
+    url: `/approvals/${id}/histories`,
+    method: 'get'
+  })
+}
+
+/**
  * 创建审批
  */
 export function createApproval(data) {
@@ -51,5 +61,15 @@ export function rejectApplication(id, comments = '') {
     url: `/approvals/${id}/reject`,
     method: 'post',
     data: { comments }
+  })
+}
+
+/**
+ * 归档审批
+ */
+export function archiveApproval(id) {
+  return request({
+    url: `/approvals/${id}/archive`,
+    method: 'post'
   })
 }

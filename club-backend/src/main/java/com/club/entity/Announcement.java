@@ -13,7 +13,7 @@ public class Announcement {
     private Integer publisherId;     // 发布人ID
     private String targetType;       // 发布范围: all, club
     private Integer targetId;        // 目标ID
-    private String status;           // 状态: draft, published, revoked
+    private String status;           // 状态: draft, published, archived
     private Integer isTop;           // 是否置顶: 0否, 1是
     private Integer viewCount;       // 浏览次数
     private LocalDateTime publishTime;   // 发布时间

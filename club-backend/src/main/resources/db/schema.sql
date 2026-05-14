@@ -91,7 +91,33 @@ CREATE TABLE activities (
 );
 
 -- 5) Recruitment plans
+DROP TABLE IF EXISTS activity_change_requests;
 DROP TABLE IF EXISTS recruitments;
+CREATE TABLE activity_change_requests (
+    change_id INT PRIMARY KEY AUTO_INCREMENT,
+    activity_id INT NOT NULL,
+    requester_id INT NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    content TEXT,
+    type VARCHAR(50) DEFAULT NULL,
+    max_participants INT NOT NULL,
+    registration_deadline DATETIME DEFAULT NULL,
+    organizer VARCHAR(50) DEFAULT NULL,
+    contact VARCHAR(100) DEFAULT NULL,
+    start_time DATETIME NOT NULL,
+    end_time DATETIME NOT NULL,
+    location VARCHAR(200) DEFAULT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT chk_activity_change_status CHECK (status IN ('pending', 'approved', 'rejected', 'archived')),
+    CONSTRAINT chk_activity_change_capacity CHECK (max_participants > 0),
+    CONSTRAINT chk_activity_change_time CHECK (end_time >= start_time),
+    CONSTRAINT fk_activity_change_activity FOREIGN KEY (activity_id) REFERENCES activities(activity_id),
+    CONSTRAINT fk_activity_change_requester FOREIGN KEY (requester_id) REFERENCES users(user_id)
+);
+
+-- 6) Recruitment plans
 CREATE TABLE recruitments (
     recruitment_id INT PRIMARY KEY AUTO_INCREMENT,
     club_id INT NOT NULL,
@@ -110,7 +136,7 @@ CREATE TABLE recruitments (
     CONSTRAINT fk_recruitments_club FOREIGN KEY (club_id) REFERENCES clubs(club_id)
 );
 
--- 6) Join applications
+-- 7) Join applications
 DROP TABLE IF EXISTS applications;
 CREATE TABLE applications (
     application_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -130,7 +156,7 @@ CREATE TABLE applications (
     CONSTRAINT fk_applications_recruitment FOREIGN KEY (recruitment_id) REFERENCES recruitments(recruitment_id)
 );
 
--- 7) Activity signups (reserved for signup features)
+-- 8) Activity signups (reserved for signup features)
 DROP TABLE IF EXISTS activity_signups;
 CREATE TABLE activity_signups (
     signup_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -145,7 +171,8 @@ CREATE TABLE activity_signups (
     CONSTRAINT fk_activity_signups_user FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
 
--- 8) Approvals
+-- 9) Approvals
+DROP TABLE IF EXISTS approval_histories;
 DROP TABLE IF EXISTS approvals;
 CREATE TABLE approvals (
     approval_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -167,7 +194,20 @@ CREATE TABLE approvals (
     CONSTRAINT fk_approvals_approver FOREIGN KEY (approver_id) REFERENCES users(user_id)
 );
 
--- 9) Announcements
+CREATE TABLE approval_histories (
+    history_id INT PRIMARY KEY AUTO_INCREMENT,
+    approval_id INT NOT NULL,
+    step_no INT NOT NULL,
+    operator_id INT DEFAULT NULL,
+    action VARCHAR(30) NOT NULL,
+    comments TEXT,
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_approval_histories_action CHECK (action IN ('created', 'advanced', 'approved', 'rejected', 'archived')),
+    CONSTRAINT fk_approval_histories_approval FOREIGN KEY (approval_id) REFERENCES approvals(approval_id),
+    CONSTRAINT fk_approval_histories_operator FOREIGN KEY (operator_id) REFERENCES users(user_id)
+);
+
+-- 10) Announcements
 DROP TABLE IF EXISTS announcements;
 CREATE TABLE announcements (
     announcement_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -188,7 +228,7 @@ CREATE TABLE announcements (
     CONSTRAINT fk_announcements_publisher FOREIGN KEY (publisher_id) REFERENCES users(user_id)
 );
 
--- 10) Operation logs
+-- 11) Operation logs
 DROP TABLE IF EXISTS operation_logs;
 CREATE TABLE operation_logs (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -209,6 +249,7 @@ CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_clubs_status ON clubs(status);
 CREATE INDEX idx_activities_club_id ON activities(club_id);
 CREATE INDEX idx_activities_status ON activities(status);
+CREATE INDEX idx_activity_change_activity_status ON activity_change_requests(activity_id, status);
 CREATE INDEX idx_recruitments_club_id ON recruitments(club_id);
 CREATE INDEX idx_recruitments_status ON recruitments(status);
 CREATE INDEX idx_applications_club_status ON applications(club_id, status);

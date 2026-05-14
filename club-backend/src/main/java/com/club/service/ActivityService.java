@@ -12,6 +12,7 @@ public interface ActivityService {
     List<Activity> byClubId(Long clubId);
     Activity create(Activity activity);
     Activity update(Activity activity);
+    ActivityChangeRequest submitChangeRequest(Activity activity, Integer requesterId);
     void delete(Integer id);
     List<Activity> search(String keyword, int page, int size);
     int searchCount(String keyword);
@@ -21,6 +22,9 @@ public interface ActivityService {
     int searchManageableCount(String keyword, Integer userId, Integer clubId, boolean includeAdvisor);
     void signup(Integer activityId, Integer userId);
     void cancelSignup(Integer activityId, Integer userId);
+    void approveSignup(Integer activityId, Integer signupId);
+    void rejectSignup(Integer activityId, Integer signupId);
+    void checkinSignup(Integer activityId, Integer signupId);
     List<ActivitySignup> getSignups(Integer activityId, int page, int size);
     int getSignupCount(Integer activityId);
 }

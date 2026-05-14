@@ -169,6 +169,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { getUserList, searchUsers, updateUser, createUser, deleteUser } from '../../api/user'
 
 const keyword = ref('')
@@ -339,26 +340,26 @@ const editUser = ref({
 const handleAddUser = async () => {
   // 表单验证
   if (!newUser.value.username.trim()) {
-    alert('请输入用户名')
+    ElMessage.warning('请输入用户名')
     return
   }
   if (!newUser.value.realName.trim()) {
-    alert('请输入真实姓名')
+    ElMessage.warning('请输入真实姓名')
     return
   }
   if (!newUser.value.password) {
-    alert('请输入密码')
+    ElMessage.warning('请输入密码')
     return
   }
   if (!newUser.value.role) {
-    alert('请选择角色')
+    ElMessage.warning('请选择角色')
     return
   }
   
   addingUser.value = true
   try {
     await createUser(newUser.value)
-    alert('用户创建成功！')
+    ElMessage.success('用户创建成功')
     showAddUserDialog.value = false
     // 重置表单
     newUser.value = {
@@ -373,7 +374,6 @@ const handleAddUser = async () => {
     await fetchUsers()
   } catch (error) {
     console.error('创建用户失败:', error)
-    alert('创建用户失败，请重试')
   } finally {
     addingUser.value = false
   }
@@ -382,7 +382,7 @@ const handleAddUser = async () => {
 // 处理编辑点击
 const handleEditClick = (user) => {
   if (!canEditUser(user.rawRole)) {
-    alert('普通社员和社团负责人资料由本人或社长维护')
+    ElMessage.warning('普通社员和社团负责人资料由本人或社长维护')
     return
   }
   // 将用户数据填充到编辑表单
@@ -400,17 +400,18 @@ const handleEditClick = (user) => {
 
 const handleDeleteUser = async (user) => {
   if (!canEditUser(user.rawRole)) {
-    alert('普通社员和社团负责人账号不能在用户管理中直接删除')
+    ElMessage.warning('普通社员和社团负责人账号不能在用户管理中直接删除')
     return
   }
-  if (!confirm(`确定删除账号 "${user.name}" 吗？`)) return
   try {
+    await ElMessageBox.confirm(`确定停用账号 "${user.name}" 吗？`, '提示')
     await deleteUser(user.id)
-    alert('用户删除成功')
+    ElMessage.success('账号已停用')
     await fetchUsers()
   } catch (error) {
-    console.error('删除用户失败:', error)
-    alert('删除用户失败: ' + (error.response?.data?.msg || error.message))
+    if (error !== 'cancel') {
+      console.error('删除用户失败:', error)
+    }
   }
 }
 
@@ -418,15 +419,15 @@ const handleDeleteUser = async (user) => {
 const handleEditUser = async () => {
   // 表单验证
   if (!editUser.value.username.trim()) {
-    alert('请输入用户名')
+    ElMessage.warning('请输入用户名')
     return
   }
   if (!editUser.value.realName.trim()) {
-    alert('请输入真实姓名')
+    ElMessage.warning('请输入真实姓名')
     return
   }
   if (!editUser.value.role) {
-    alert('请选择角色')
+    ElMessage.warning('请选择角色')
     return
   }
   
@@ -446,16 +447,15 @@ const handleEditUser = async () => {
       updateData.password = editUser.value.password
     }
     
-    const result = await updateUser(editUser.value.userId, updateData)
+    await updateUser(editUser.value.userId, updateData)
     
-    alert('用户信息更新成功！')
+    ElMessage.success('用户信息更新成功')
     showEditUserDialog.value = false
     // 重新加载用户列表
     await fetchUsers()
   } catch (error) {
     console.error('更新用户失败:', error)
     console.error('错误详情:', error.response?.data || error.message)
-    alert('更新用户失败，请重试: ' + (error.response?.data?.msg || error.message))
   } finally {
     editingUser.value = false
   }

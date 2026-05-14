@@ -1,8 +1,10 @@
 package com.club.controller;
 
 import com.club.common.*;
+import com.club.dto.ApprovalActionRequest;
 import com.club.entity.*;
 import com.club.service.*;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -47,6 +49,15 @@ public class ApprovalController {
         return Result.ok(approval);
     }
 
+    @GetMapping("/approvals/{id}/histories")
+    @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
+    public Result<java.util.List<ApprovalHistory>> histories(@PathVariable Integer id, HttpServletRequest request) {
+        securityContext.requireAdminOrTeacher(request);
+        Approval approval = approvalService.getById(id);
+        requireApprovalAccess(request, approval);
+        return Result.ok(approvalService.histories(id));
+    }
+
     @GetMapping("/approvals/pending")
     @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
     public Result<PageResult<Approval>> pendingList(
@@ -76,12 +87,12 @@ public class ApprovalController {
     }
 
     @PostMapping("/approvals")
-    public Result<Approval> create(@RequestBody Approval approval, HttpServletRequest request) {
+    public Result<Approval> create(HttpServletRequest request) {
         throw new RuntimeException("审批记录由社团成立或活动申请流程自动生成，不能手工创建");
     }
 
     @PutMapping("/approvals/{id}")
-    public Result<Approval> update(@PathVariable Integer id, @RequestBody Approval approval, HttpServletRequest request) {
+    public Result<Approval> update(@PathVariable Integer id, HttpServletRequest request) {
         throw new RuntimeException("审批记录不能手工修改，请使用通过或驳回操作以同步业务状态");
     }
 
@@ -93,23 +104,33 @@ public class ApprovalController {
         return Result.ok();
     }
 
+    @PostMapping("/approvals/{id}/archive")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Result<Void> archive(@PathVariable Integer id, HttpServletRequest request) {
+        securityContext.requireAdmin(request);
+        approvalService.delete(id);
+        return Result.ok();
+    }
+
     @PostMapping("/approvals/{id}/approve")
     @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
-    public Result<Void> approve(@PathVariable Integer id, @RequestBody(required = false) java.util.Map<String, Object> requestBody, HttpServletRequest request) {
+    public Result<Void> approve(@PathVariable Integer id, @Valid @RequestBody(required = false) ApprovalActionRequest requestBody, HttpServletRequest request) {
         securityContext.requireAdminOrTeacher(request);
-        requireApprovalAccess(request, approvalService.getById(id));
-        String comments = requestBody != null ? (String) requestBody.get("comments") : "";
-        approvalService.approve(id, securityContext.currentUserId(request), comments != null ? comments : "");
+        Approval approval = approvalService.getById(id);
+        requireApprovalAccess(request, approval);
+        requireApprovalStepPermission(request, approval);
+        approvalService.approve(id, securityContext.currentUserId(request), requestBody != null ? requestBody.normalizedComments() : "");
         return Result.ok();
     }
 
     @PostMapping("/approvals/{id}/reject")
     @PreAuthorize("hasAnyRole('ADMIN','TEACHER')")
-    public Result<Void> reject(@PathVariable Integer id, @RequestBody(required = false) java.util.Map<String, Object> requestBody, HttpServletRequest request) {
+    public Result<Void> reject(@PathVariable Integer id, @Valid @RequestBody(required = false) ApprovalActionRequest requestBody, HttpServletRequest request) {
         securityContext.requireAdminOrTeacher(request);
-        requireApprovalAccess(request, approvalService.getById(id));
-        String comments = requestBody != null ? (String) requestBody.get("comments") : "";
-        approvalService.reject(id, securityContext.currentUserId(request), comments != null ? comments : "");
+        Approval approval = approvalService.getById(id);
+        requireApprovalAccess(request, approval);
+        requireApprovalStepPermission(request, approval);
+        approvalService.reject(id, securityContext.currentUserId(request), requestBody != null ? requestBody.normalizedComments() : "");
         return Result.ok();
     }
 
@@ -188,5 +209,19 @@ public class ApprovalController {
             }
             default -> false;
         };
+    }
+
+    private void requireApprovalStepPermission(HttpServletRequest request, Approval approval) {
+        int currentStep = approval.getCurrentStep() == null ? 1 : approval.getCurrentStep();
+        int totalSteps = approval.getTotalSteps() == null ? 1 : approval.getTotalSteps();
+        if (securityContext.isTeacher(request)) {
+            if (totalSteps <= 1 || currentStep != 1) {
+                throw new RuntimeException("指导老师只能处理第一步审批");
+            }
+            return;
+        }
+        if (securityContext.isAdmin(request) && totalSteps > 1 && currentStep < totalSteps) {
+            throw new RuntimeException("前置审批未完成，管理员暂不能处理");
+        }
     }
 }

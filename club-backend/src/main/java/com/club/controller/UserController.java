@@ -1,9 +1,13 @@
 package com.club.controller;
 
 import com.club.common.*;
+import com.club.dto.UserCreateRequest;
+import com.club.dto.UserUpdateRequest;
 import com.club.entity.*;
 import com.club.service.*;
+import com.club.vo.UserVO;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -24,7 +28,7 @@ public class UserController {
     private static final Set<String> USER_STATUSES = Set.of("active", "inactive");
 
     @GetMapping("/users")
-    public Result<PageResult<User>> list(
+    public Result<PageResult<UserVO>> list(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String role,
@@ -35,66 +39,54 @@ public class UserController {
                 throw new RuntimeException("只有管理员或社团负责人可以查看用户列表");
             }
             Integer managedClubId = securityContext.requireLeaderClubId(request);
-            return Result.ok(PageResult.of(userService.listByClub(managedClubId, page, size), userService.countByClub(managedClubId), page, size));
+            return Result.ok(PageResult.of(toUserVOs(userService.listByClub(managedClubId, page, size)), userService.countByClub(managedClubId), page, size));
         }
-        return Result.ok(PageResult.of(userService.list(role, status, page, size), userService.count(role, status), page, size));
+        return Result.ok(PageResult.of(toUserVOs(userService.list(role, status, page, size)), userService.count(role, status), page, size));
     }
 
     @PostMapping("/users")
     @PreAuthorize("hasRole('ADMIN')")
-    public Result<User> create(@RequestBody User user, HttpServletRequest request) {
+    public Result<UserVO> create(@Valid @RequestBody UserCreateRequest requestBody, HttpServletRequest request) {
         securityContext.requireAdmin(request);
-        if (user.getUsername() == null || user.getUsername().isBlank()) {
-            throw new RuntimeException("用户名不能为空");
-        }
-        if (user.getPassword() == null || user.getPassword().isBlank()) {
-            throw new RuntimeException("密码不能为空");
-        }
-        user.setUsername(user.getUsername().trim());
-        user.setPassword(user.getPassword().trim());
+        User user = requestBody.toUser();
         user.setRole(requireAllowedValue(user.getRole(), USER_ROLES, "角色"));
         if (user.getStatus() != null && !user.getStatus().isBlank()) {
             user.setStatus(requireAllowedValue(user.getStatus(), USER_STATUSES, "账号状态"));
         }
-        return Result.ok(userService.create(user));
+        return Result.ok(UserVO.from(userService.create(user)));
     }
 
     @PutMapping("/users/{id}")
-    public Result<User> update(@PathVariable Integer id, @RequestBody Map<String, Object> updates, HttpServletRequest request) {
+    public Result<UserVO> update(@PathVariable Integer id, @Valid @RequestBody UserUpdateRequest updates, HttpServletRequest request) {
         Integer currentUserId = securityContext.currentUserId(request);
         User existingUser = userService.getById(id);
         if (existingUser == null) return Result.error("用户不存在");
-        validateUserUpdateScope(existingUser, updates, currentUserId.equals(id), request);
+        Set<String> updateFields = updateFields(updates);
+        validateUserUpdateScope(existingUser, updateFields, currentUserId.equals(id), request);
 
-        if (updates.containsKey("username")) existingUser.setUsername(nonBlankString(updates.get("username"), "username"));
-        if (updates.containsKey("realName")) existingUser.setRealName(stringValue(updates.get("realName"), "realName"));
-        if (updates.containsKey("password") && updates.get("password") != null) {
-            String password = stringValue(updates.get("password"), "password");
-            if (password.isBlank()) {
-                throw new RuntimeException("密码不能为空");
-            }
-            existingUser.setPassword(passwordEncoder.encode(password));
-        }
-        if (updates.containsKey("studentId")) existingUser.setStudentId(nullableString(updates.get("studentId"), "studentId"));
-        if (updates.containsKey("department")) existingUser.setDepartment(nullableString(updates.get("department"), "department"));
-        if (updates.containsKey("className")) existingUser.setClassName(nullableString(updates.get("className"), "className"));
-        if (updates.containsKey("role")) {
+        if (updates.username() != null) existingUser.setUsername(nonBlankString(updates.username(), "username"));
+        if (updates.realName() != null) existingUser.setRealName(stringValue(updates.realName(), "realName"));
+        if (updates.password() != null) existingUser.setPassword(passwordEncoder.encode(nonBlankString(updates.password(), "password")));
+        if (updates.studentId() != null) existingUser.setStudentId(nullableString(updates.studentId(), "studentId"));
+        if (updates.department() != null) existingUser.setDepartment(nullableString(updates.department(), "department"));
+        if (updates.className() != null) existingUser.setClassName(nullableString(updates.className(), "className"));
+        if (updates.role() != null) {
             securityContext.requireAdmin(request);
-            existingUser.setRole(requireAllowedValue(updates.get("role"), USER_ROLES, "角色"));
+            existingUser.setRole(requireAllowedValue(updates.role(), USER_ROLES, "角色"));
         }
-        if (updates.containsKey("status")) existingUser.setStatus(requireAllowedValue(updates.get("status"), USER_STATUSES, "账号状态"));
-        if (updates.containsKey("email")) existingUser.setEmail(nullableString(updates.get("email"), "email"));
-        if (updates.containsKey("phone")) existingUser.setPhone(nullableString(updates.get("phone"), "phone"));
+        if (updates.status() != null) existingUser.setStatus(requireAllowedValue(updates.status(), USER_STATUSES, "账号状态"));
+        if (updates.email() != null) existingUser.setEmail(nullableString(updates.email(), "email"));
+        if (updates.phone() != null) existingUser.setPhone(nullableString(updates.phone(), "phone"));
 
-        boolean invalidateTokens = updates.containsKey("password") || updates.containsKey("role") || updates.containsKey("status");
+        boolean invalidateTokens = updateFields.contains("password") || updateFields.contains("role") || updateFields.contains("status");
         User updated = userService.update(existingUser);
         if (invalidateTokens) {
             userService.invalidateTokens(id);
         }
-        return Result.ok(updated);
+        return Result.ok(UserVO.from(updated));
     }
 
-    private void validateUserUpdateScope(User target, Map<String, Object> updates, boolean selfUpdate, HttpServletRequest request) {
+    private void validateUserUpdateScope(User target, Set<String> updates, boolean selfUpdate, HttpServletRequest request) {
         if (selfUpdate) {
             ensureAllowedFields(updates, Set.of("realName", "password", "department", "className", "email", "phone"));
             return;
@@ -111,12 +103,27 @@ public class UserController {
         return "student".equals(user.getRole()) || "club_leader".equals(user.getRole());
     }
 
-    private void ensureAllowedFields(Map<String, Object> updates, Set<String> allowedFields) {
-        for (String field : updates.keySet()) {
+    private void ensureAllowedFields(Set<String> updates, Set<String> allowedFields) {
+        for (String field : updates) {
             if (!allowedFields.contains(field)) {
                 throw new RuntimeException("无权修改字段：" + field);
             }
         }
+    }
+
+    private Set<String> updateFields(UserUpdateRequest updates) {
+        Set<String> fields = new java.util.HashSet<>();
+        if (updates.username() != null) fields.add("username");
+        if (updates.realName() != null) fields.add("realName");
+        if (updates.password() != null) fields.add("password");
+        if (updates.studentId() != null) fields.add("studentId");
+        if (updates.department() != null) fields.add("department");
+        if (updates.className() != null) fields.add("className");
+        if (updates.role() != null) fields.add("role");
+        if (updates.status() != null) fields.add("status");
+        if (updates.email() != null) fields.add("email");
+        if (updates.phone() != null) fields.add("phone");
+        return fields;
     }
 
     @DeleteMapping("/users/{id}")
@@ -136,7 +143,7 @@ public class UserController {
 
     @GetMapping("/users/search")
     @PreAuthorize("hasRole('ADMIN')")
-    public Result<PageResult<User>> search(
+    public Result<PageResult<UserVO>> search(
             @RequestParam String keyword,
             @RequestParam(required = false) String role,
             @RequestParam(required = false) String status,
@@ -144,12 +151,12 @@ public class UserController {
             @RequestParam(defaultValue = "10") int size,
             HttpServletRequest request) {
         securityContext.requireAdmin(request);
-        return Result.ok(PageResult.of(userService.search(keyword, role, status, page, size), userService.searchCount(keyword, role, status), page, size));
+        return Result.ok(PageResult.of(toUserVOs(userService.search(keyword, role, status, page, size)), userService.searchCount(keyword, role, status), page, size));
     }
     
     @GetMapping("/users/current")
-    public Result<User> getCurrentUser(HttpServletRequest request) {
-        return Result.ok(securityContext.currentUser(request));
+    public Result<UserVO> getCurrentUser(HttpServletRequest request) {
+        return Result.ok(UserVO.from(securityContext.currentUser(request)));
     }
     
     /**
@@ -204,6 +211,10 @@ public class UserController {
             return null;
         }
         return stringValue(rawValue, fieldName);
+    }
+
+    private java.util.List<UserVO> toUserVOs(java.util.List<User> users) {
+        return users.stream().map(UserVO::from).toList();
     }
 
 }

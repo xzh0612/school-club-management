@@ -10,15 +10,15 @@
       <div class="card-header">
         <h3>审批列表</h3>
         <div style="display:flex;gap:8px">
-          <button class="btn btn-primary btn-sm" :class="{'btn-outline':typeFilter!==''}" @click="typeFilter=''">全部</button>
-          <button class="btn btn-primary btn-sm" :class="{'btn-outline':typeFilter!=='club_creation'}" @click="typeFilter='club_creation'">社团成立</button>
-          <button class="btn btn-primary btn-sm" :class="{'btn-outline':typeFilter!=='activity_application'}" @click="typeFilter='activity_application'">活动申请</button>
+          <button class="btn btn-primary btn-sm" :class="{'btn-outline':typeFilter!==''}" @click="changeType('')">全部</button>
+          <button class="btn btn-primary btn-sm" :class="{'btn-outline':typeFilter!=='club_creation'}" @click="changeType('club_creation')">社团成立</button>
+          <button class="btn btn-primary btn-sm" :class="{'btn-outline':typeFilter!=='activity_application'}" @click="changeType('activity_application')">活动申请</button>
         </div>
       </div>
       <table class="data-table">
         <thead><tr><th>ID</th><th>类型</th><th>申请人</th><th>关联内容</th><th>状态</th><th>提交时间</th><th>意见</th><th>操作</th></tr></thead>
         <tbody>
-          <tr v-for="a in filteredApprovals" :key="a.approvalId">
+          <tr v-for="a in approvals" :key="a.approvalId">
             <td>{{ a.approvalId }}</td>
             <td><span class="tag tag-blue">{{ typeText(a.type) }}</span></td>
             <td>{{ a.applicantName }}</td>
@@ -31,28 +31,36 @@
                 <button class="btn btn-success btn-sm" style="margin-right:8px" @click="handleApprove(a, 'approved')">通过</button>
                 <button class="btn btn-danger btn-sm" @click="handleApprove(a, 'rejected')">驳回</button>
               </template>
-              <span v-else>--</span>
+              <button v-else class="btn btn-outline btn-sm" @click="handleArchive(a)">归档</button>
             </td>
           </tr>
         </tbody>
       </table>
-      <div v-if="!loading && filteredApprovals.length === 0" class="empty-state">暂无审批数据</div>
+      <div v-if="!loading && approvals.length === 0" class="empty-state">暂无审批数据</div>
+      <div class="pagination">
+        <button class="btn btn-outline btn-sm" :disabled="currentPage <= 1" @click="changePage(currentPage - 1)">上一页</button>
+        <span class="page-info">第 {{ currentPage }} 页，共 {{ totalPages }} 页</span>
+        <button class="btn btn-outline btn-sm" :disabled="currentPage >= totalPages" @click="changePage(currentPage + 1)">下一页</button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { getApprovalList, approveApplication, rejectApplication } from '../../api/approval'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getApprovalList, approveApplication, rejectApplication, archiveApproval } from '../../api/approval'
 
 const loading = ref(false)
 const typeFilter = ref('')
 const approvals = ref([])
 const approvalStats = ref({ pending: 0, approved: 0, rejected: 0, total: 0 })
+const currentPage = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
 
 const extractRecords = (payload) => payload?.records || payload?.list || (Array.isArray(payload) ? payload : [])
-const filteredApprovals = computed(() => typeFilter.value ? approvals.value.filter(a => a.type === typeFilter.value) : approvals.value)
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
 const typeText = (type) => ({ club_creation: '社团成立', activity_application: '活动申请' }[type] || type)
 const statusText = (status) => ({ pending: '待审批', approved: '已通过', rejected: '已驳回' }[status] || status)
@@ -63,17 +71,18 @@ const fetchApprovals = async () => {
   loading.value = true
   try {
     const [response, pending, approved, rejected] = await Promise.all([
-      getApprovalList({ page: 1, size: 100 }),
+      getApprovalList({ page: currentPage.value, size: pageSize.value, type: typeFilter.value }),
       getApprovalList({ page: 1, size: 1, status: 'pending' }),
       getApprovalList({ page: 1, size: 1, status: 'approved' }),
       getApprovalList({ page: 1, size: 1, status: 'rejected' })
     ])
     approvals.value = extractRecords(response.data)
+    total.value = response.data?.total || approvals.value.length
     approvalStats.value = {
       pending: pending.data?.total || 0,
       approved: approved.data?.total || 0,
       rejected: rejected.data?.total || 0,
-      total: response.data?.total || approvals.value.length
+      total: total.value
     }
   } catch (error) {
     console.error('加载审批失败:', error)
@@ -81,6 +90,17 @@ const fetchApprovals = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const changeType = async (type) => {
+  typeFilter.value = type
+  currentPage.value = 1
+  await fetchApprovals()
+}
+
+const changePage = async (page) => {
+  currentPage.value = Math.min(Math.max(1, page), totalPages.value)
+  await fetchApprovals()
 }
 
 const handleApprove = async (approval, action) => {
@@ -98,9 +118,24 @@ const handleApprove = async (approval, action) => {
   }
 }
 
+const handleArchive = async (approval) => {
+  try {
+    await ElMessageBox.confirm(`确定归档审批 #${approval.approvalId} 吗？`, '提示')
+    await archiveApproval(approval.approvalId)
+    ElMessage.success('归档成功')
+    await fetchApprovals()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('归档失败:', error)
+    }
+  }
+}
+
 onMounted(fetchApprovals)
 </script>
 
 <style scoped>
 .progress-track { display:flex; align-items:center; gap:24px; padding:16px; background:#F9FAFB; border-radius:8px; flex-wrap:wrap; }
+.pagination { display:flex; justify-content:flex-end; align-items:center; gap:12px; margin-top:16px; }
+.page-info { color:#6B7280; font-size:13px; }
 </style>

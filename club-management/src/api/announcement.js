@@ -53,6 +53,14 @@ export function deleteAnnouncement(id) {
   })
 }
 
+export function searchAnnouncements(keyword, page = 1, size = 10) {
+  return request({
+    url: '/announcements/search',
+    method: 'get',
+    params: { keyword, page, size }
+  })
+}
+
 export function publishAnnouncement(id) {
   return request({
     url: `/announcements/${id}/publish`,

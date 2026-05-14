@@ -12,9 +12,7 @@ export function submitApplication(clubId, introduction, recruitmentId = null) {
   return request({
     url: '/applications',
     method: 'post',
-    params: { clubId, recruitmentId },
-    data: introduction || '',
-    headers: { 'Content-Type': 'text/plain' }
+    data: { clubId, recruitmentId, introduction: introduction || '' }
   })
 }
 

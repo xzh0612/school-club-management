@@ -62,6 +62,9 @@ public interface ApprovalMapper {
     
     @Update("UPDATE approvals SET status = #{status}, approver_id = #{approverId}, comments = #{comments}, approval_time = NOW(), update_time = NOW() WHERE approval_id = #{approvalId}")
     int updateStatus(Approval approval);
+
+    @Update("UPDATE approvals SET current_step = #{currentStep}, approver_id = #{approverId}, comments = #{comments}, update_time = NOW() WHERE approval_id = #{approvalId}")
+    int updateStep(Approval approval);
     
     @Update("UPDATE approvals SET status = 'archived', update_time = NOW() WHERE approval_id = #{approvalId}")
     int deleteById(Integer approvalId);
